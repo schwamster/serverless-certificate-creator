@@ -15,7 +15,7 @@ open serverless.yml and add the following:
         customCertificate:
             certificateName: 'abc.somedomain.io' //required
             idempotencyToken: 'abcsomedomainio' //optional
-            hostedZoneId: 'Z3KRBD2OX064NC' //required
+            hostedZoneId: 'XXXXXXXXX' //required
             region: eu-west-1 // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
 
 
