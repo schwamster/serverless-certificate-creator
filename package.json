@@ -11,5 +11,14 @@
   "dependencies": {
     "aws-sdk": "^2.320.0",
     "delay": "^4.0.1"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schwamster/serverless-certificate-creator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/schwamster/serverless-certificate-creator/issues"
+  },
+  "homepage": "https://github.com/schwamster/serverless-certificate-creator#readme"
 }
