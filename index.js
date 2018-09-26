@@ -32,9 +32,12 @@ class CreateCertificatePlugin {
         this.route53 = new this.serverless.providers.aws.sdk.Route53(credentials);
         this.region = this.serverless.service.custom.customCertificate.region || 'us-east-1';
         this.domain = this.serverless.service.custom.customCertificate.certificateName;
+        this.hostedZoneId = this.serverless.service.custom.customCertificate.hostedZoneId;
+        this.hostedZoneName = this.serverless.service.custom.customCertificate.hostedZoneName;
         const acmCredentials = Object.assign({}, credentials, { region: this.region });
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
+
       }
 
       this.initialized = true;
@@ -100,6 +103,7 @@ class CreateCertificatePlugin {
     this.serverless.cli.log(`Trying to create certificate for ${this.domain} in ${this.region} ...`);
     return this.getExistingCertificate().then(existingCert => {
 
+
       if (existingCert) {
         this.serverless.cli.log(`Certificate for ${this.domain} in ${this.region} already exists. Skipping ...`);
         return;
@@ -142,7 +146,7 @@ class CreateCertificatePlugin {
     })
   }
 
-  waitUntilCertificateIsValidated(certificateArn){
+  waitUntilCertificateIsValidated(certificateArn) {
     this.serverless.cli.log('waiting until certificate is validated...');
     var params = {
       CertificateArn: certificateArn /* required */
@@ -156,39 +160,62 @@ class CreateCertificatePlugin {
     });
   }
 
+  getHostedZoneId() {
+
+    return this.route53.listHostedZones({}).promise().then(data => {
+
+      if (this.hostedZoneId) {
+        return this.hostedZoneId;
+      }
+
+      let hostedZone = data.HostedZones.filter(x => x.Name == this.hostedZoneName);
+      if (hostedZone.length == 0) {
+        throw "no hosted zone for domain found"
+      }
+      
+      this.hostedZoneId = hostedZone[0].Id.replace(/\/hostedzone\//g, '');
+      return this.hostedZoneId;
+    }).catch(error => {
+      this.serverless.cli.log('certificate validation failed', error);
+      console.log('problem', error);
+      throw error;
+    });
+  }
+
   /**
    * create the record set required for valdiation type dns. the certificate has the necessary information.
    * at least a short time after the cert has been created, thats why you should delay this call a bit after u created a new cert
    */
   createRecordSetForDnsValidation(certificate) {
-    var params = {
-      ChangeBatch: {
-        Changes: [
-          {
-            Action: "CREATE",
-            ResourceRecordSet: {
-              Name: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Name,
-              ResourceRecords: [
-                {
-                  Value: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Value
-                }
-              ],
-              TTL: 60,
-              Type: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Type
+    return this.getHostedZoneId().then((hostedZoneId) => {
+      var params = {
+        ChangeBatch: {
+          Changes: [
+            {
+              Action: "CREATE",
+              ResourceRecordSet: {
+                Name: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Name,
+                ResourceRecords: [
+                  {
+                    Value: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Value
+                  }
+                ],
+                TTL: 60,
+                Type: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Type
+              }
             }
-          }
-        ],
-        Comment: `DNS Validation for certificate ${certificate.Certificate.DomainValidationOptions[0].DomainName}`
-      },
-      HostedZoneId: this.serverless.service.custom.customCertificate.hostedZoneId
-    };
-
-    return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-      this.serverless.cli.log('dns validation record created - soon the certificate is functional');
-    }).catch(error => {
-      this.serverless.cli.log('could not create record set for dns validation', error);
-      console.log('problem', error);
-      throw error;
+          ],
+          Comment: `DNS Validation for certificate ${certificate.Certificate.DomainValidationOptions[0].DomainName}`
+        },
+        HostedZoneId: hostedZoneId
+      };
+      return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
+        this.serverless.cli.log('dns validation record created - soon the certificate is functional');
+      }).catch(error => {
+        this.serverless.cli.log('could not create record set for dns validation', error);
+        console.log('problem', error);
+        throw error;
+      });
     });
   }
 
