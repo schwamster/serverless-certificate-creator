@@ -34,6 +34,7 @@ class CreateCertificatePlugin {
         this.domain = this.serverless.service.custom.customCertificate.certificateName;
         const acmCredentials = Object.assign({}, credentials, { region: this.region });
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
+        this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
       }
 
       this.initialized = true;
@@ -106,54 +107,20 @@ class CreateCertificatePlugin {
 
       let params = {
         DomainName: this.domain,
-        ValidationMethod: 'DNS'
+        ValidationMethod: 'DNS',
+        IdempotencyToken: this.idempotencyToken
       };
 
-
-      let idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
-      if (idempotencyToken) {
-        Object.assign({}, params, { IdempotencyToken: idempotencyToken })
-      }
-
       return this.acm.requestCertificate(params).promise().then(requestCertificateResponse => {
-        this.serverless.cli.log('requested cert:' + JSON.stringify(requestCertificateResponse));
+        this.serverless.cli.log(`requested cert: ${requestCertificateResponse.CertificateArn}`);
 
         var params = {
           CertificateArn: requestCertificateResponse.CertificateArn
         };
 
         return delay(10000).then(() => this.acm.describeCertificate(params).promise().then(certificate => {
-          this.serverless.cli.log('got cert info: ' + JSON.stringify(certificate));
-          var params = {
-            ChangeBatch: {
-              Changes: [
-                {
-                  Action: "CREATE",
-                  ResourceRecordSet: {
-                    Name: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Name,
-                    ResourceRecords: [
-                      {
-                        Value: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Value
-                      }
-                    ],
-                    TTL: 60,
-                    Type: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Type
-                  }
-                }
-              ],
-              Comment: `DNS Validation for certificate ${certificate.Certificate.DomainValidationOptions[0].DomainName}`
-            },
-            HostedZoneId: this.serverless.service.custom.customCertificate.hostedZoneId
-          };
-          this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-            this.serverless.cli.log('dns validation record created - soon the certificate is functional');
-            console.log(JSON.stringify(recordSetResult));
-          }).catch(error => {
-            this.serverless.cli.log('could not create record set for dns validation', error);
-            console.log('problem', error);
-            throw error;
-          });
-
+          this.serverless.cli.log(`got cert info: ${certificate.Certificate.CertificateArn} - ${certificate.Certificate.Status}`);
+          return this.createRecordSetForDnsValidation(certificate).then(() => this.waitUntilCertificateIsValidated(certificate.Certificate.CertificateArn));
         }).catch(error => {
           this.serverless.cli.log('could not get cert info', error);
           console.log('problem', error);
@@ -173,6 +140,56 @@ class CreateCertificatePlugin {
       console.log('problem', error);
       throw error;
     })
+  }
+
+  waitUntilCertificateIsValidated(certificateArn){
+    this.serverless.cli.log('waiting until certificate is validated...');
+    var params = {
+      CertificateArn: certificateArn /* required */
+    };
+    return this.acm.waitFor('certificateValidated', params).promise().then(data => {
+      this.serverless.cli.log(`cert was successfully created and validated and can be used now`);
+    }).catch(error => {
+      this.serverless.cli.log('certificate validation failed', error);
+      console.log('problem', error);
+      throw error;
+    });
+  }
+
+  /**
+   * create the record set required for valdiation type dns. the certificate has the necessary information.
+   * at least a short time after the cert has been created, thats why you should delay this call a bit after u created a new cert
+   */
+  createRecordSetForDnsValidation(certificate) {
+    var params = {
+      ChangeBatch: {
+        Changes: [
+          {
+            Action: "CREATE",
+            ResourceRecordSet: {
+              Name: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Name,
+              ResourceRecords: [
+                {
+                  Value: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Value
+                }
+              ],
+              TTL: 60,
+              Type: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Type
+            }
+          }
+        ],
+        Comment: `DNS Validation for certificate ${certificate.Certificate.DomainValidationOptions[0].DomainName}`
+      },
+      HostedZoneId: this.serverless.service.custom.customCertificate.hostedZoneId
+    };
+
+    return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
+      this.serverless.cli.log('dns validation record created - soon the certificate is functional');
+    }).catch(error => {
+      this.serverless.cli.log('could not create record set for dns validation', error);
+      console.log('problem', error);
+      throw error;
+    });
   }
 
   /**
