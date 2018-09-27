@@ -50,7 +50,7 @@ Open serverless.yml and add the following:
 
         plugins:
         - serverless-certificate-creator
-        - serverless-domain -manager
+        - serverless-domain-manager
 
         ...
 
