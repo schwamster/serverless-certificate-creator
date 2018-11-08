@@ -49,13 +49,13 @@ class CreateCertificatePlugin {
   /**
    * Determines whether this plug-in should be enabled.
    *
-   * This method reads the customDomain property "enabled" to see if this plug-in should be enabled.
+   * This method reads the customCertificate property "enabled" to see if this plug-in should be enabled.
    * If the property's value is undefined, a default value of true is assumed (for backwards
    * compatibility).
    * If the property's value is provided, this should be boolean, otherwise an exception is thrown.
    */
   evaluateEnabled() {
-    const enabled = this.serverless.service.custom.customDomain.enabled;
+    const enabled = this.serverless.service.custom.customCertificate.enabled;
     if (enabled === undefined) {
       return true;
     }
