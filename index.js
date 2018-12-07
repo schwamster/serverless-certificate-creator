@@ -1,6 +1,8 @@
 'use strict';
 const delay = require('delay');
 const chalk = require('chalk');
+const fs = require('fs');
+const YAML = require('yamljs');
 
 class CreateCertificatePlugin {
   constructor(serverless, options) {
@@ -37,6 +39,7 @@ class CreateCertificatePlugin {
         const acmCredentials = Object.assign({}, credentials, { region: this.region });
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
+        this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
 
       }
 
@@ -89,7 +92,12 @@ class CreateCertificatePlugin {
     });
   }
 
-
+  writeCertificateInfoToFile(certificateArn) {
+    const info = {CertificateArn: certificateArn, Domain: this.domain}
+    if (this.writeCertInfoToFile) {
+      fs.writeFileSync('cert-info.yml', YAML.stringify(info));
+    }
+  }
 
   /**
    * Creates a certificate for the given options set in serverless.yml under custom->customCertificate
@@ -105,7 +113,8 @@ class CreateCertificatePlugin {
 
 
       if (existingCert) {
-        this.serverless.cli.log(`Certificate for ${this.domain} in ${this.region} already exists. Skipping ...`);
+        this.serverless.cli.log(`Certificate for ${this.domain} in ${this.region} already exists with arn "${existingCert.CertificateArn}". Skipping ...`);
+        this.writeCertificateInfoToFile(existingCert.CertificateArn);
         return;
       }
 
@@ -152,6 +161,7 @@ class CreateCertificatePlugin {
       CertificateArn: certificateArn /* required */
     };
     return this.acm.waitFor('certificateValidated', params).promise().then(data => {
+      this.writeCertificateInfoToFile(certificateArn);
       this.serverless.cli.log(`cert was successfully created and validated and can be used now`);
     }).catch(error => {
       this.serverless.cli.log('certificate validation failed', error);
@@ -172,7 +182,7 @@ class CreateCertificatePlugin {
       if (hostedZone.length == 0) {
         throw "no hosted zone for domain found"
       }
-      
+
       this.hostedZoneId = hostedZone[0].Id.replace(/\/hostedzone\//g, '');
       return this.hostedZoneId;
     }).catch(error => {
@@ -210,7 +220,7 @@ class CreateCertificatePlugin {
         HostedZoneId: hostedZoneId
       };
       return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-        this.serverless.cli.log('dns validation record created - soon the certificate is functional');
+        this.serverless.cli.log('dns validation record created - create is ready for use after validation has gone through');
       }).catch(error => {
         this.serverless.cli.log('could not create record set for dns validation', error);
         console.log('problem', error);
