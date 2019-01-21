@@ -102,14 +102,13 @@ class CreateCertificatePlugin {
       CertificateArn: certificateArn,
       Domain: this.domain
     }
-    this.serverless.cli.log(`Writing certificate info to ${this.certInfoFileName}`);
-    const dirname = path.dirname(this.certInfoFileName);
     try {
-      mkdirp.sync(dirname);
+      mkdirp.sync(path.dirname(this.certInfoFileName));
+      this.serverless.cli.log(`Writing certificate info to ${this.certInfoFileName}`);
       fs.writeFileSync(this.certInfoFileName, YAML.stringify(info));
     } catch (error) {
-      this.serverless.cli.log(`Unable to create file in ${dirname}`);
-      console.log('problem', error);
+      this.serverless.cli.log(`Unable to write to ${this.certInfoFileName}`);
+      throw error;
     }
   }
 
