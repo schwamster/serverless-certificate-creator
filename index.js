@@ -40,7 +40,7 @@ class CreateCertificatePlugin {
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
         this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
-
+        this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
       }
 
       this.initialized = true;
@@ -95,7 +95,7 @@ class CreateCertificatePlugin {
   writeCertificateInfoToFile(certificateArn) {
     const info = {CertificateArn: certificateArn, Domain: this.domain}
     if (this.writeCertInfoToFile) {
-      fs.writeFileSync('cert-info.yml', YAML.stringify(info));
+      fs.writeFileSync(this.certInfoFileName, YAML.stringify(info));
     }
   }
 
