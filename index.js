@@ -2,7 +2,9 @@
 const delay = require('delay');
 const chalk = require('chalk');
 const fs = require('fs');
+const path = require('path');
 const YAML = require('yamljs');
+const mkdirp = require('mkdirp');
 
 class CreateCertificatePlugin {
   constructor(serverless, options) {
@@ -93,10 +95,21 @@ class CreateCertificatePlugin {
   }
 
   writeCertificateInfoToFile(certificateArn) {
-    const info = {CertificateArn: certificateArn, Domain: this.domain}
-    if (this.writeCertInfoToFile) {
-      this.serverless.cli.log(`Writing certificate info to ${this.certInfoFileName}`);
+    if (!this.writeCertInfoToFile) {
+      return;
+    }
+    const info = {
+      CertificateArn: certificateArn,
+      Domain: this.domain
+    }
+    this.serverless.cli.log(`Writing certificate info to ${this.certInfoFileName}`);
+    const dirname = path.dirname(this.certInfoFileName);
+    try {
+      mkdirp.sync(dirname);
       fs.writeFileSync(this.certInfoFileName, YAML.stringify(info));
+    } catch (error) {
+      this.serverless.cli.log(`Unable to create file in ${dirname}`);
+      console.log('problem', error);
     }
   }
 
@@ -162,8 +175,8 @@ class CreateCertificatePlugin {
       CertificateArn: certificateArn /* required */
     };
     return this.acm.waitFor('certificateValidated', params).promise().then(data => {
-      this.writeCertificateInfoToFile(certificateArn);
       this.serverless.cli.log(`cert was successfully created and validated and can be used now`);
+      this.writeCertificateInfoToFile(certificateArn);
     }).catch(error => {
       this.serverless.cli.log('certificate validation failed', error);
       console.log('problem', error);
