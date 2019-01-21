@@ -95,6 +95,7 @@ class CreateCertificatePlugin {
   writeCertificateInfoToFile(certificateArn) {
     const info = {CertificateArn: certificateArn, Domain: this.domain}
     if (this.writeCertInfoToFile) {
+      this.serverless.cli.log(`Writing certificate info to ${this.certInfoFileName}`);
       fs.writeFileSync(this.certInfoFileName, YAML.stringify(info));
     }
   }
