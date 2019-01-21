@@ -2,7 +2,9 @@
 const delay = require('delay');
 const chalk = require('chalk');
 const fs = require('fs');
+const path = require('path');
 const YAML = require('yamljs');
+const mkdirp = require('mkdirp');
 
 class CreateCertificatePlugin {
   constructor(serverless, options) {
@@ -40,7 +42,7 @@ class CreateCertificatePlugin {
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
         this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
-
+        this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
       }
 
       this.initialized = true;
@@ -93,9 +95,20 @@ class CreateCertificatePlugin {
   }
 
   writeCertificateInfoToFile(certificateArn) {
-    const info = {CertificateArn: certificateArn, Domain: this.domain}
-    if (this.writeCertInfoToFile) {
-      fs.writeFileSync('cert-info.yml', YAML.stringify(info));
+    if (!this.writeCertInfoToFile) {
+      return;
+    }
+    const info = {
+      CertificateArn: certificateArn,
+      Domain: this.domain
+    }
+    try {
+      mkdirp.sync(path.dirname(this.certInfoFileName));
+      this.serverless.cli.log(`Writing certificate info to ${this.certInfoFileName}`);
+      fs.writeFileSync(this.certInfoFileName, YAML.stringify(info));
+    } catch (error) {
+      this.serverless.cli.log(`Unable to write to ${this.certInfoFileName}`);
+      throw error;
     }
   }
 
@@ -161,8 +174,8 @@ class CreateCertificatePlugin {
       CertificateArn: certificateArn /* required */
     };
     return this.acm.waitFor('certificateValidated', params).promise().then(data => {
-      this.writeCertificateInfoToFile(certificateArn);
       this.serverless.cli.log(`cert was successfully created and validated and can be used now`);
+      this.writeCertificateInfoToFile(certificateArn);
     }).catch(error => {
       this.serverless.cli.log('certificate validation failed', error);
       console.log('problem', error);
