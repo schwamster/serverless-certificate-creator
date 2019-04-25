@@ -6,6 +6,8 @@ const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
 
+const unsupportedRegions = [ 'cn-north-1', 'cn-northwest-1' ];
+
 class CreateCertificatePlugin {
   constructor(serverless, options) {
     this.serverless = serverless;
@@ -116,7 +118,10 @@ class CreateCertificatePlugin {
    * Creates a certificate for the given options set in serverless.yml under custom->customCertificate
    */
   createCertificate() {
-
+    const region = this.options.region || this.serverless.service.provider.region;
+    if (unsupportedRegions.includes(region)) {
+      this.enabled = false;
+    }
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
@@ -246,6 +251,10 @@ class CreateCertificatePlugin {
    * Prints out a summary of all domain manager related info
    */
   certificateSummary() {
+    const region = this.options.region || this.serverless.service.provider.region;
+    if (unsupportedRegions.includes(region)) {
+      this.enabled = false;
+    }
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
