@@ -6,7 +6,7 @@ const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
 
-const unsupportedRegions = [ 'cn-north-1', 'cn-northwest-1' ];
+const unsupportedRegionPrefixes = [ 'cn-' ];
 
 class CreateCertificatePlugin {
   constructor(serverless, options) {
@@ -46,6 +46,13 @@ class CreateCertificatePlugin {
         this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
         this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
       }
+
+      unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
+        if(this.region.startsWith(unsupportedRegionPrefix)){
+          console.log(`The configured region ${this.region} does not support ACM. Plugin disabled`);
+          this.enabled = false;
+        }
+      })
 
       this.initialized = true;
     }
@@ -117,11 +124,7 @@ class CreateCertificatePlugin {
   /**
    * Creates a certificate for the given options set in serverless.yml under custom->customCertificate
    */
-  createCertificate() {
-    const region = this.options.region || this.serverless.service.provider.region;
-    if (unsupportedRegions.includes(region)) {
-      this.enabled = false;
-    }
+  createCertificate() {   
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
@@ -251,10 +254,6 @@ class CreateCertificatePlugin {
    * Prints out a summary of all domain manager related info
    */
   certificateSummary() {
-    const region = this.options.region || this.serverless.service.provider.region;
-    if (unsupportedRegions.includes(region)) {
-      this.enabled = false;
-    }
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
