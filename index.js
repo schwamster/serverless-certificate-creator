@@ -45,14 +45,14 @@ class CreateCertificatePlugin {
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
         this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
         this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
-      }
 
-      unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
-        if(this.region.startsWith(unsupportedRegionPrefix)){
-          console.log(`The configured region ${this.region} does not support ACM. Plugin disabled`);
-          this.enabled = false;
-        }
-      })
+        unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
+          if(this.region.startsWith(unsupportedRegionPrefix)){
+            console.log(`The configured region ${this.region} does not support ACM. Plugin disabled`);
+            this.enabled = false;
+          }
+        })
+      }
 
       this.initialized = true;
     }
