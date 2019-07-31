@@ -69,6 +69,7 @@ Open serverless.yml and add the following:
                 hostedZoneName: 'somedomain.io.' //required if hostedZoneId is not set
                 hostedZoneId: 'XXXXXXXXX' //required if hostedZoneName is not set
                 region: eu-west-1 // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
+                enabled: true // optional - default is true. For some stages you may not want to use certificates (and custom domains associated with it).
 
 Now you can run:
 
