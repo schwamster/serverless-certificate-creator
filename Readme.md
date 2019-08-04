@@ -111,7 +111,7 @@ Now you can run:
         serverless create-cert
         serverless create_domain
 
-Please make sure to check out the complete sample project [here](https://github.com/schwamster/serverless-certificate-creator/examples/certificate-creator-example).
+Please make sure to check out the complete sample project [here](https://github.com/schwamster/serverless-certificate-creator/tree/master/examples/certificate-creator-example).
 
 ### License
 
