@@ -13,7 +13,7 @@
 - [Usage Requirements](#usage-requirements)
 - [Usage](#usage)
 - [Combine with serverless-domain-manager](#combine-with-serverless-domain-manager)
-  * [Example](#example)
+  * [Examples](#examples)
 - [License](#license)
 
 # Description
