@@ -1,0 +1,45 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: certificate-creator-example
+app: certificate-creator-example-app
+
+plugins:
+  - serverless-certificate-creator
+  - serverless-domain-manager
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+     - http:
+         path: example/something
+         method: get
+
+custom:
+  customDomain:
+    domainName: certcreatorsample.greenelephant.io
+    certificateName: 'certcreatorsample.greenelephant.io'
+    basePath: ''
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+  customCertificate:
+    certificateName: 'certcreatorsample.greenelephant.io'
+    idempotencyToken: 'certcreatorsamplegreenelephantio'
+    writeCertInfoToFile: true
+    certInfoFileName: "certs/${self:provider.stage}/cert-info.yml"
+    hostedZoneName: 'greenelephant.io.'    

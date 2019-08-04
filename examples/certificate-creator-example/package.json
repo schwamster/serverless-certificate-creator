@@ -1,0 +1,15 @@
+{
+  "name": "certificate-creator-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "handler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "serverless-certificate-creator": "^1.0.8",
+    "serverless-domain-manager": "^3.2.6"
+  }
+}

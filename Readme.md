@@ -6,8 +6,43 @@
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/235fe249b8354a3db0cc5926dba47899)](https://www.codacy.com/app/CFER/serverless-certificate-creator?utm_source=github.com&utm_medium=referral&utm_content=schwamster/serverless-certificate-creator&utm_campaign=badger)
 [![npm downloads](https://img.shields.io/npm/dt/serverless-certificate-creator.svg?style=flat)](https://www.npmjs.com/package/serverless-certificate-creator)
 
+# Table of Contents
+
+- [Description](#description)
+- [Serverless Framework](#serverless-framework)
+- [Usage Requirements](#usage-requirements)
+- [Usage](#usage)
+- [Combine with serverless-domain-manager](#combine-with-serverless-domain-manager)
+  * [Example](#example)
+- [License](#license)
+
+# Description
+
 This serverless plugin creates certificates that you need for your custom domains in API Gateway.
 Use this in your CICD flow to automatically create a certificate, create the necessary route53 recordsets to validate the certificate with Dns-Validation and finally wait until the certificate has been validated.
+
+# Serverless Framework
+
+This package is made for the [serverless framework](https://serverless.com).
+
+You can install it like this:
+
+```bash
+# Install the serverless cli
+npm install -g serverless
+
+# Or, update the serverless cli from a previous version
+npm update -g serverless
+```
+
+Check out their getting started guide for more information [here](https://serverless.com/framework/docs/getting-started/).
+
+# Usage Requirements
+
+Make sure you have the following installed before starting:
+* [nodejs](https://nodejs.org/en/download/)
+* [npm](https://www.npmjs.com/get-npm?utm_source=house&utm_medium=homepage&utm_campaign=free%20orgs&utm_term=Install%20npm)
+* [serverless](https://serverless.com/framework/docs/providers/aws/guide/installation/)
 
 # Usage
 
@@ -37,11 +72,11 @@ now you can run:
 
 # Combine with serverless-domain-manager
 
-If you combine this plugin with serverless-domain-manager you can automate the complete process of creating a custom domain with a certificate.
+If you combine this plugin with [serverless-domain-manager](https://github.com/amplify-education/serverless-domain-manager) you can automate the complete process of creating a custom domain with a certificate.
 I found serverless-domain-manager very useful but i also wanted to be able to automatically create the certificate for the newly generated custom domain.
 
 
-## Example
+## Examples
 
 Install the plugins:
 
@@ -75,3 +110,11 @@ Now you can run:
 
         serverless create-cert
         serverless create_domain
+
+Please make sure to check out the complete sample project [here](https://github.com/schwamster/serverless-certificate-creator/examples/certificate-creator-example).
+
+### License
+
+Copyright (c) 2018 Bastian Töpfer, contributors.
+
+Released under the [MIT license](https://tldrlegal.com/license/mit-license).
