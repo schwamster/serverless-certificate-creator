@@ -7,7 +7,6 @@ jobs:
   build:
     docker:
       - image: circleci/node:10.15
-
     working_directory: ~/repo
 
     steps:
@@ -28,4 +27,23 @@ jobs:
           key: v1-dependencies-{{ checksum "package.json" }}
 
       # run tests!
-      - run: yarn test
+      # - run: yarn test
+  publish:
+    requires:
+      - build
+    docker:
+      - image: circleci/node:10.15
+    working_directory: ~/repo
+    steps:
+      - run: echo "hello world"
+workflows:
+  version: 2
+  build_and_publish:
+    jobs:
+      - build
+      - publish:
+          filters: 
+            branches:
+              only:  
+                - master
+
