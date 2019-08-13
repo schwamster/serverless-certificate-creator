@@ -52,7 +52,7 @@ workflows:
   build_and_publish:
     jobs:
       - build
-      - publish-branches:
+      - publish-branch:
           filters: 
             branches:
               ignore:  
