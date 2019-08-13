@@ -241,7 +241,7 @@ class CreateCertificatePlugin {
         HostedZoneId: hostedZoneId
       };
       return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-        this.serverless.cli.log('dns validation record created - create is ready for use after validation has gone through');
+        this.serverless.cli.log('dns validation record created - certificate is ready for use after validation has gone through');
       }).catch(error => {
         this.serverless.cli.log('could not create record set for dns validation', error);
         console.log('problem', error);
