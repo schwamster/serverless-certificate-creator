@@ -43,9 +43,10 @@ jobs:
       - image: circleci/node:10.15
     working_directory: ~/repo
     steps:
-      - run: echo "hello world from ${CIRCLE_BRANCH} ${CIRCLE_BUILD_NUM}"
-      - run: ls
-
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$npm_TOKEN" > ~/repo/.npmrc
+      - run: npm publish --tag pre-${CIRCLE_BRANCH}-${CIRCLE_BUILD_NUM}
       
 workflows:
   version: 2
