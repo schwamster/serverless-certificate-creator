@@ -3,12 +3,15 @@
 # Check https://circleci.com/docs/2.0/language-javascript/ for more details
 #
 version: 2
+
+defaults: &defaults
+  working_directory: ~/repo
+  docker:
+    - image: circleci/node:10.15
+  
 jobs:
   build:
-    docker:
-      - image: circleci/node:10.15
-    working_directory: ~/repo
-
+    <<: *defaults
     steps:
       - checkout
 
@@ -32,13 +35,8 @@ jobs:
       - persist_to_workspace:
           root: ~/repo
           paths: .
-
   publish-master:
-    requires:
-      - build
-    docker:
-      - image: circleci/node:10.15
-    working_directory: ~/repo
+    <<: *defaults
     steps:
       - attach_workspace:
           at: ~/repo
@@ -63,11 +61,15 @@ workflows:
     jobs:
       - build
       - publish-branch:
+          requires:
+            - build
           filters: 
             branches:
               ignore:  
                 - master
       - publish-master:
+          requires:
+            - build          
           filters: 
             branches:
               only:  
