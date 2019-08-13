@@ -44,7 +44,7 @@ jobs:
           at: ~/repo
       - run: rm -r ./examples
       - run: 
-          name: test
+          name: bump rc version
           command: |
             PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
             npm version --no-git-tag-version $PACKAGE_VERSION-rc-${CIRCLE_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
