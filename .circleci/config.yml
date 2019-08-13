@@ -46,6 +46,7 @@ jobs:
       - run: 
           name: test
           command: |
+            npm --no-git-tag-version version
             PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
             npm version $PACKAGE_VERSION-rc-${CIRCLE_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
       - run:
