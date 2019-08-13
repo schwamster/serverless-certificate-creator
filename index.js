@@ -45,6 +45,7 @@ class CreateCertificatePlugin {
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
         this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
         this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
+        this.subjectAlternativeNames = this.serverless.service.custom.customCertificate.subjectAlternativeNames || [];
 
         unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
           if(this.region.startsWith(unsupportedRegionPrefix)){
@@ -142,7 +143,8 @@ class CreateCertificatePlugin {
       let params = {
         DomainName: this.domain,
         ValidationMethod: 'DNS',
-        IdempotencyToken: this.idempotencyToken
+        IdempotencyToken: this.idempotencyToken,
+        SubjectAlternativeNames: this.subjectAlternativeNames
       };
 
       return this.acm.requestCertificate(params).promise().then(requestCertificateResponse => {
@@ -219,29 +221,32 @@ class CreateCertificatePlugin {
    */
   createRecordSetForDnsValidation(certificate) {
     return this.getHostedZoneId().then((hostedZoneId) => {
+
+      let changes = certificate.Certificate.DomainValidationOptions.map((x) => {
+        return {
+          Action: "CREATE",
+          ResourceRecordSet: {
+            Name: x.ResourceRecord.Name,
+            ResourceRecords: [
+              {
+                Value: x.ResourceRecord.Value
+              }
+            ],
+            TTL: 60,
+            Type: x.ResourceRecord.Type
+          }
+        }
+      });
+
       var params = {
         ChangeBatch: {
-          Changes: [
-            {
-              Action: "CREATE",
-              ResourceRecordSet: {
-                Name: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Name,
-                ResourceRecords: [
-                  {
-                    Value: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Value
-                  }
-                ],
-                TTL: 60,
-                Type: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Type
-              }
-            }
-          ],
+          Changes: changes,
           Comment: `DNS Validation for certificate ${certificate.Certificate.DomainValidationOptions[0].DomainName}`
         },
         HostedZoneId: hostedZoneId
       };
       return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-        this.serverless.cli.log('dns validation record created - certificate is ready for use after validation has gone through');
+        this.serverless.cli.log('dns validation record(s) created - certificate is ready for use after validation has gone through');
       }).catch(error => {
         this.serverless.cli.log('could not create record set for dns validation', error);
         console.log('problem', error);

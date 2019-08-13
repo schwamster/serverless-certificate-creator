@@ -57,13 +57,24 @@ open serverless.yml and add the following:
 
         custom:
             customCertificate:
-                certificateName: 'abc.somedomain.io' //required
-                idempotencyToken: 'abcsomedomainio' //optional
-                hostedZoneName: 'somedomain.io.' //required if hostedZoneId is not set
-                hostedZoneId: 'XXXXXXXXX' //required if hostedZoneName is not set
-                writeCertInfoToFile: false // optional default is false. if you set it to true you will get a new file (after executing serverless create-cert), that contains certificate info that you can use in your deploy pipeline
-                certInfoFileName: 'cert-info.yml' // optional, only used when writeCertInfoToFile is set to true. It sets the name of the file containing the cert info
-                region: eu-west-1 // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
+                //required
+                certificateName: 'abc.somedomain.io'
+                //optional
+                idempotencyToken: 'abcsomedomainio'
+                //required if hostedZoneId is not set
+                hostedZoneName: 'somedomain.io.' 
+                //required if hostedZoneName is not set
+                hostedZoneId: 'XXXXXXXXX'
+                // optional default is false. if you set it to true you will get a new file (after executing serverless create-cert), that contains certificate info that you can use in your deploy pipeline
+                writeCertInfoToFile: false 
+                // optional, only used when writeCertInfoToFile is set to true. It sets the name of the file containing the cert info
+                certInfoFileName: 'cert-info.yml' 
+                // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
+                region: eu-west-1
+                //optional - see SubjectAlternativeNames https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/ACM.html#requestCertificate-property
+                subjectAlternativeNames : 
+                    - 'www.somedomain.io'
+                    - 'def.somedomain.io'
 
 
 now you can run:
