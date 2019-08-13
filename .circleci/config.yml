@@ -28,7 +28,7 @@ jobs:
 
       # run tests!
       # - run: yarn test
-  publish:
+  publish-master:
     requires:
       - build
     docker:
@@ -36,12 +36,28 @@ jobs:
     working_directory: ~/repo
     steps:
       - run: echo "hello world"
+  publish-branch:
+    requires:
+      - build
+    docker:
+      - image: circleci/node:10.15
+    working_directory: ~/repo
+    steps:
+      - run: echo "hello world from echo ${CIRCLE_BRANCH}"
+      - run: ls
+
+      
 workflows:
   version: 2
   build_and_publish:
     jobs:
       - build
-      - publish:
+      - publish-branches:
+          filters: 
+            branches:
+              ignore:  
+                - master
+      - publish-master:
           filters: 
             branches:
               only:  
