@@ -1,0 +1,79 @@
+# Javascript Node CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-javascript/ for more details
+#
+version: 2
+
+defaults: &defaults
+  working_directory: ~/repo
+  docker:
+    - image: circleci/node:10.15
+  
+jobs:
+  build:
+    <<: *defaults
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+      - run: npm install
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-dependencies-{{ checksum "package.json" }}
+
+      # run tests!
+      # - run: npm test
+      
+      - persist_to_workspace:
+          root: ~/repo
+          paths: .
+  publish-master:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - run: rm -r ./examples
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
+      - run: npm publish
+  publish-branch:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - run: rm -r ./examples
+      - run: 
+          name: bump rc version
+          command: |
+            PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
+            npm version --no-git-tag-version $PACKAGE_VERSION-rc-${CIRCLE_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
+      - run: npm publish --tag rc-${CIRCLE_BRANCH}
+      
+workflows:
+  version: 2
+  build_and_publish:
+    jobs:
+      - build
+      - publish-branch:
+          requires:
+            - build
+          filters: 
+            branches:
+              ignore:  
+                - master
+      - publish-master:
+          requires:
+            - build          
+          filters: 
+            branches:
+              only:  
+                - master
+

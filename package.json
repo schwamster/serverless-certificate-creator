@@ -1,6 +1,6 @@
 {
   "name": "serverless-certificate-creator",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "creates a certificate that can be used for custom domains for your api gateway",
   "main": "index.js",
   "scripts": {
