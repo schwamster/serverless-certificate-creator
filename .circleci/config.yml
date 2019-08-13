@@ -47,11 +47,11 @@ jobs:
           name: test
           command: |
             PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
-            echo $PACKAGE_VERSION
+            npm version $PACKAGE_VERSION-rc-${CIRCLE_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
-      - run: npm publish --tag pre-${CIRCLE_BRANCH}
+      - run: npm publish --tag rc-${CIRCLE_BRANCH}
       
 workflows:
   version: 2
