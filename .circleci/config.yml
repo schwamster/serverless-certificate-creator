@@ -42,11 +42,7 @@ jobs:
           at: ~/repo
       - run: echo "hello world"
   publish-branch:
-    requires:
-      - build
-    docker:
-      - image: circleci/node:10.15
-    working_directory: ~/repo
+    <<: *defaults
     steps:
       - attach_workspace:
           at: ~/repo
