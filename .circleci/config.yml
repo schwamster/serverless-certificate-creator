@@ -43,10 +43,15 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run: rm -r ./examples
+      - run: 
+          name: test
+          command: |
+            PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
+            echo $PACKAGE_VERSION
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
-      - run: npm publish --tag pre-${CIRCLE_BRANCH}-${CIRCLE_BUILD_NUM}
+      - run: npm publish --tag pre-${CIRCLE_BRANCH}
       
 workflows:
   version: 2
