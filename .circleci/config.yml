@@ -49,7 +49,7 @@ jobs:
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$npm_TOKEN" > ~/repo/.npmrc
-      - run: ls
+      - run: ls -a
       - run: npm publish --tag pre-${CIRCLE_BRANCH}-${CIRCLE_BUILD_NUM}
       
 workflows:
