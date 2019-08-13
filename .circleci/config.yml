@@ -36,7 +36,11 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/repo
-      - run: echo "hello world"
+      - run: rm -r ./examples
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
+      - run: npm publish
   publish-branch:
     <<: *defaults
     steps:
