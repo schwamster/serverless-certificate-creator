@@ -75,6 +75,11 @@ open serverless.yml and add the following:
                 subjectAlternativeNames : 
                     - 'www.somedomain.io'
                     - 'def.somedomain.io'
+                //optional - see https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/ACM.html#addTagsToCertificate-property
+                //if you want to give your certificate a name that is shown in the ACM Console you can add a Tag with the key "Name"
+                tags:
+                    Name: 'somedomain.com'
+                    Environment: 'prod'
 
 
 now you can run:
