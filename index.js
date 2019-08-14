@@ -94,7 +94,10 @@ class CreateCertificatePlugin {
     return this.acm.listCertificates({}).promise();
   }
 
-  tagCertificate(certificateArn, tags) {
+  /**
+   * tags a certificate
+   */
+  tagCertificate(certificateArn) {
     let mappedTags = [];
     if (Object.keys(this.tags).length) {
       mappedTags = Object.keys(this.tags).map((tag) => {
@@ -185,7 +188,7 @@ class CreateCertificatePlugin {
         return delay(10000).then(() => this.acm.describeCertificate(params).promise().then(certificate => {
           this.serverless.cli.log(`got cert info: ${certificate.Certificate.CertificateArn} - ${certificate.Certificate.Status}`);
           return this.createRecordSetForDnsValidation(certificate)
-            .then(() => this.tagCertificate(certificate.Certificate.CertificateArn, this.tags))
+            .then(() => this.tagCertificate(certificate.Certificate.CertificateArn))
             .then(() => this.waitUntilCertificateIsValidated(certificate.Certificate.CertificateArn));
 
         }).catch(error => {
@@ -287,7 +290,7 @@ class CreateCertificatePlugin {
   }
 
   /**
-   * Prints out a summary of all domain manager related info
+   * Prints out a summary of all certificate related info
    */
   certificateSummary() {
     this.initializeVariables();
