@@ -144,8 +144,11 @@ class CreateCertificatePlugin {
         DomainName: this.domain,
         ValidationMethod: 'DNS',
         IdempotencyToken: this.idempotencyToken,
-        SubjectAlternativeNames: this.subjectAlternativeNames
       };
+
+      if (this.subjectAlternativeNames && this.subjectAlternativeNames.length) {
+        params.SubjectAlternativeNames = this.subjectAlternativeNames
+      }
 
       return this.acm.requestCertificate(params).promise().then(requestCertificateResponse => {
         this.serverless.cli.log(`requested cert: ${requestCertificateResponse.CertificateArn}`);
