@@ -111,6 +111,7 @@ class CreateCertificatePlugin {
         Tags: mappedTags
       }
   
+      this.serverless.cli.log(`tagging certificate`);
       return this.acm.addTagsToCertificate(params).promise().catch(error => {
         this.serverless.cli.log('tagging certificate failed', error);
         console.log('problem', error);
