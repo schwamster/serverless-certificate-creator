@@ -6,7 +6,7 @@ const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
 
-const unsupportedRegionPrefixes = [ 'cn-' ];
+const unsupportedRegionPrefixes = ['cn-'];
 
 class CreateCertificatePlugin {
   constructor(serverless, options) {
@@ -46,9 +46,10 @@ class CreateCertificatePlugin {
         this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
         this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
         this.subjectAlternativeNames = this.serverless.service.custom.customCertificate.subjectAlternativeNames || [];
+        this.tags = this.serverless.service.custom.customCertificate.tags || {};
 
         unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
-          if(this.region.startsWith(unsupportedRegionPrefix)){
+          if (this.region.startsWith(unsupportedRegionPrefix)) {
             console.log(`The configured region ${this.region} does not support ACM. Plugin disabled`);
             this.enabled = false;
           }
@@ -93,6 +94,34 @@ class CreateCertificatePlugin {
     return this.acm.listCertificates({}).promise();
   }
 
+  /**
+   * tags a certificate
+   */
+  tagCertificate(certificateArn) {
+    let mappedTags = [];
+    if (Object.keys(this.tags).length) {
+      mappedTags = Object.keys(this.tags).map((tag) => {
+        return {
+          Key: tag,
+          Value: this.tags[tag]
+        }
+      });
+      const params = {
+        CertificateArn: certificateArn,
+        Tags: mappedTags
+      }
+  
+      this.serverless.cli.log(`tagging certificate`);
+      return this.acm.addTagsToCertificate(params).promise().catch(error => {
+        this.serverless.cli.log('tagging certificate failed', error);
+        console.log('problem', error);
+        throw error;
+      });
+    }
+
+    return Promise.resolve();
+  }
+
   getExistingCertificate() {
     return this.listCertificates().then(data => {
 
@@ -125,7 +154,7 @@ class CreateCertificatePlugin {
   /**
    * Creates a certificate for the given options set in serverless.yml under custom->customCertificate
    */
-  createCertificate() {   
+  createCertificate() {
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
@@ -159,7 +188,10 @@ class CreateCertificatePlugin {
 
         return delay(10000).then(() => this.acm.describeCertificate(params).promise().then(certificate => {
           this.serverless.cli.log(`got cert info: ${certificate.Certificate.CertificateArn} - ${certificate.Certificate.Status}`);
-          return this.createRecordSetForDnsValidation(certificate).then(() => this.waitUntilCertificateIsValidated(certificate.Certificate.CertificateArn));
+          return this.createRecordSetForDnsValidation(certificate)
+            .then(() => this.tagCertificate(certificate.Certificate.CertificateArn))
+            .then(() => this.waitUntilCertificateIsValidated(certificate.Certificate.CertificateArn));
+
         }).catch(error => {
           this.serverless.cli.log('could not get cert info', error);
           console.log('problem', error);
@@ -259,7 +291,7 @@ class CreateCertificatePlugin {
   }
 
   /**
-   * Prints out a summary of all domain manager related info
+   * Prints out a summary of all certificate related info
    */
   certificateSummary() {
     this.initializeVariables();
