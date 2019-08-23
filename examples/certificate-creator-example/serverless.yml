@@ -42,4 +42,10 @@ custom:
     idempotencyToken: 'certcreatorsamplegreenelephantio'
     writeCertInfoToFile: true
     certInfoFileName: "certs/${self:provider.stage}/cert-info.yml"
-    hostedZoneName: 'greenelephant.io.'    
+    hostedZoneName: 'greenelephant.io.'
+    subjectAlternativeNames : 
+      - 'certcreatorsample1.greenelephant.io'
+      - 'certcreatorsample2.greenelephant.io'
+    tags:
+      Name: 'somedomain.com'
+      Environment: 'prod'

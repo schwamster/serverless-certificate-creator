@@ -6,7 +6,7 @@ const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
 
-const unsupportedRegionPrefixes = [ 'cn-' ];
+const unsupportedRegionPrefixes = ['cn-'];
 
 class CreateCertificatePlugin {
   constructor(serverless, options) {
@@ -45,9 +45,11 @@ class CreateCertificatePlugin {
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
         this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
         this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
+        this.subjectAlternativeNames = this.serverless.service.custom.customCertificate.subjectAlternativeNames || [];
+        this.tags = this.serverless.service.custom.customCertificate.tags || {};
 
         unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
-          if(this.region.startsWith(unsupportedRegionPrefix)){
+          if (this.region.startsWith(unsupportedRegionPrefix)) {
             console.log(`The configured region ${this.region} does not support ACM. Plugin disabled`);
             this.enabled = false;
           }
@@ -92,6 +94,34 @@ class CreateCertificatePlugin {
     return this.acm.listCertificates({}).promise();
   }
 
+  /**
+   * tags a certificate
+   */
+  tagCertificate(certificateArn) {
+    let mappedTags = [];
+    if (Object.keys(this.tags).length) {
+      mappedTags = Object.keys(this.tags).map((tag) => {
+        return {
+          Key: tag,
+          Value: this.tags[tag]
+        }
+      });
+      const params = {
+        CertificateArn: certificateArn,
+        Tags: mappedTags
+      }
+  
+      this.serverless.cli.log(`tagging certificate`);
+      return this.acm.addTagsToCertificate(params).promise().catch(error => {
+        this.serverless.cli.log('tagging certificate failed', error);
+        console.log('problem', error);
+        throw error;
+      });
+    }
+
+    return Promise.resolve();
+  }
+
   getExistingCertificate() {
     return this.listCertificates().then(data => {
 
@@ -124,7 +154,7 @@ class CreateCertificatePlugin {
   /**
    * Creates a certificate for the given options set in serverless.yml under custom->customCertificate
    */
-  createCertificate() {   
+  createCertificate() {
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
@@ -142,8 +172,12 @@ class CreateCertificatePlugin {
       let params = {
         DomainName: this.domain,
         ValidationMethod: 'DNS',
-        IdempotencyToken: this.idempotencyToken
+        IdempotencyToken: this.idempotencyToken,
       };
+
+      if (this.subjectAlternativeNames && this.subjectAlternativeNames.length) {
+        params.SubjectAlternativeNames = this.subjectAlternativeNames
+      }
 
       return this.acm.requestCertificate(params).promise().then(requestCertificateResponse => {
         this.serverless.cli.log(`requested cert: ${requestCertificateResponse.CertificateArn}`);
@@ -154,7 +188,10 @@ class CreateCertificatePlugin {
 
         return delay(10000).then(() => this.acm.describeCertificate(params).promise().then(certificate => {
           this.serverless.cli.log(`got cert info: ${certificate.Certificate.CertificateArn} - ${certificate.Certificate.Status}`);
-          return this.createRecordSetForDnsValidation(certificate).then(() => this.waitUntilCertificateIsValidated(certificate.Certificate.CertificateArn));
+          return this.createRecordSetForDnsValidation(certificate)
+            .then(() => this.tagCertificate(certificate.Certificate.CertificateArn))
+            .then(() => this.waitUntilCertificateIsValidated(certificate.Certificate.CertificateArn));
+
         }).catch(error => {
           this.serverless.cli.log('could not get cert info', error);
           console.log('problem', error);
@@ -219,29 +256,32 @@ class CreateCertificatePlugin {
    */
   createRecordSetForDnsValidation(certificate) {
     return this.getHostedZoneId().then((hostedZoneId) => {
+
+      let changes = certificate.Certificate.DomainValidationOptions.map((x) => {
+        return {
+          Action: "CREATE",
+          ResourceRecordSet: {
+            Name: x.ResourceRecord.Name,
+            ResourceRecords: [
+              {
+                Value: x.ResourceRecord.Value
+              }
+            ],
+            TTL: 60,
+            Type: x.ResourceRecord.Type
+          }
+        }
+      });
+
       var params = {
         ChangeBatch: {
-          Changes: [
-            {
-              Action: "CREATE",
-              ResourceRecordSet: {
-                Name: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Name,
-                ResourceRecords: [
-                  {
-                    Value: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Value
-                  }
-                ],
-                TTL: 60,
-                Type: certificate.Certificate.DomainValidationOptions[0].ResourceRecord.Type
-              }
-            }
-          ],
+          Changes: changes,
           Comment: `DNS Validation for certificate ${certificate.Certificate.DomainValidationOptions[0].DomainName}`
         },
         HostedZoneId: hostedZoneId
       };
       return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-        this.serverless.cli.log('dns validation record created - certificate is ready for use after validation has gone through');
+        this.serverless.cli.log('dns validation record(s) created - certificate is ready for use after validation has gone through');
       }).catch(error => {
         this.serverless.cli.log('could not create record set for dns validation', error);
         console.log('problem', error);
@@ -251,7 +291,7 @@ class CreateCertificatePlugin {
   }
 
   /**
-   * Prints out a summary of all domain manager related info
+   * Prints out a summary of all certificate related info
    */
   certificateSummary() {
     this.initializeVariables();
