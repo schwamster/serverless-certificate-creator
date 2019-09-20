@@ -28,6 +28,14 @@ class CreateCertificatePlugin {
       'after:deploy:deploy': this.certificateSummary.bind(this),
       'after:info:info': this.certificateSummary.bind(this),
     };
+
+    this.variableResolvers = {
+      certificate: {
+        resolver: this.getCertificateProperty.bind(this),
+        isDisabledAtPrepopulation: true,
+        serviceName: 'serverless-certificate-creator depends on AWS credentials.'
+      }
+    };
   }
 
   initializeVariables() {
@@ -305,6 +313,26 @@ class CreateCertificatePlugin {
       this.serverless.cli.consoleLog(`  ${existingCertificate.CertificateArn} => ${existingCertificate.DomainName}`);
       return true;
     });
+  }
+
+  getCertificateProperty(src) {
+    this.initializeVariables();
+    let [s, domainName, property] = src.split(':');
+    return this.listCertificates()
+      .then(({ CertificateSummaryList }) => {
+        let cert = CertificateSummaryList.filter(({ DomainName }) => DomainName == domainName)[0];
+        if (cert && cert[property]) {
+          return cert[property];
+        } else {
+          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
+          return '';
+        }
+      })
+      .catch(error => {
+        console.log(this.domain, this.region);
+        this.serverless.cli.log('Could not find certificate property attempting to create...');
+        throw error;
+      });
   }
 }
 
