@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
+var packageJson = require('./package.json');
 
 const unsupportedRegionPrefixes = ['cn-'];
 
@@ -13,7 +14,7 @@ class CreateCertificatePlugin {
     this.serverless = serverless;
     this.options = options;
     this.initialized = false;
-
+    this.serverless.cli.log(`serverless-certificate-creator version ${packageJson.version} called`);
     this.commands = {
       'create-cert': {
         usage: 'creates a certificate for an existing domain/hosted zone',
@@ -30,7 +31,7 @@ class CreateCertificatePlugin {
     };
   }
 
-  initializeVariables() {
+  async initializeVariables() {
     if (!this.initialized) {
       this.enabled = this.evaluateEnabled();
       if (this.enabled) {
@@ -38,8 +39,10 @@ class CreateCertificatePlugin {
         this.route53 = new this.serverless.providers.aws.sdk.Route53(credentials);
         this.region = this.serverless.service.custom.customCertificate.region || 'us-east-1';
         this.domain = this.serverless.service.custom.customCertificate.certificateName;
-        this.hostedZoneId = this.serverless.service.custom.customCertificate.hostedZoneId;
-        this.hostedZoneName = this.serverless.service.custom.customCertificate.hostedZoneName;
+        //hostedZoneId is mapped for backwards compatibility
+        this.hostedZoneIds = this.serverless.service.custom.customCertificate.hostedZoneIds ? this.serverless.service.custom.customCertificate.hostedZoneIds : (this.serverless.service.custom.customCertificate.hostedZoneId) ? [].concat(this.serverless.service.custom.customCertificate.hostedZoneId) : [];
+        //hostedZoneName is mapped for backwards compatibility
+        this.hostedZoneNames = this.serverless.service.custom.customCertificate.hostedZoneNames ? this.serverless.service.custom.customCertificate.hostedZoneNames : (this.serverless.service.custom.customCertificate.hostedZoneName) ? [].concat(this.serverless.service.custom.customCertificate.hostedZoneName) : [];
         const acmCredentials = Object.assign({}, credentials, { region: this.region });
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
@@ -228,24 +231,24 @@ class CreateCertificatePlugin {
     });
   }
 
-  getHostedZoneId() {
+  getHostedZoneIds() {
 
     return this.route53.listHostedZones({}).promise().then(data => {
 
-      if (this.hostedZoneId) {
-        return [].concat(this.hostedZoneId);
+      if (this.hostedZoneIds.length > 0) {
+        return data.HostedZones.filter(x => this.hostedZoneIds.includes(x.Id.replace(/\/hostedzone\//g, ''))).map(({Id, Name}) => {
+          return {hostedZoneId: Id.replace(/\/hostedzone\//g, ''), Name: Name.substr(0, Name.length - 1)}
+        })
       }
 
-      let isMultipleZones = Array.isArray(this.hostedZoneName);
-      let hostedZones = data.HostedZones.filter(x => isMultipleZones ? this.hostedZoneName.includes(x.Name) : x.Name == this.hostedZoneName);
+      let hostedZones = data.HostedZones.filter(x => this.hostedZoneNames.includes(x.Name));
       if (hostedZones.length == 0) {
         throw "no hosted zone for domain found"
       }
 
-      this.hostedZoneIds = hostedZones.map(({ Id, Name }) => {
+      return hostedZones.map(({ Id, Name }) => {
         return { hostedZoneId: Id.replace(/\/hostedzone\//g, ''), Name: Name.substr(0, Name.length - 1) };
       });
-      return this.hostedZoneIds;
     }).catch(error => {
       this.serverless.cli.log('certificate validation failed', error);
       console.log('problem', error);
@@ -258,7 +261,7 @@ class CreateCertificatePlugin {
    * at least a short time after the cert has been created, thats why you should delay this call a bit after u created a new cert
    */
   createRecordSetForDnsValidation(certificate) {
-    return this.getHostedZoneId().then((hostedZoneIds) => {
+    return this.getHostedZoneIds().then((hostedZoneIds) => {
 
       return Promise.all(hostedZoneIds.map(({ hostedZoneId, Name }) => {
         let changes = certificate.Certificate.DomainValidationOptions.filter(({DomainName}) => DomainName.endsWith(Name)).map((x) => {
