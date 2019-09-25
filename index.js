@@ -110,7 +110,7 @@ class CreateCertificatePlugin {
         CertificateArn: certificateArn,
         Tags: mappedTags
       }
-  
+
       this.serverless.cli.log(`tagging certificate`);
       return this.acm.addTagsToCertificate(params).promise().catch(error => {
         this.serverless.cli.log('tagging certificate failed', error);
@@ -233,16 +233,19 @@ class CreateCertificatePlugin {
     return this.route53.listHostedZones({}).promise().then(data => {
 
       if (this.hostedZoneId) {
-        return this.hostedZoneId;
+        return [].concat(this.hostedZoneId);
       }
 
-      let hostedZone = data.HostedZones.filter(x => x.Name == this.hostedZoneName);
-      if (hostedZone.length == 0) {
+      let isMultipleZones = Array.isArray(this.hostedZoneName);
+      let hostedZones = data.HostedZones.filter(x => isMultipleZones ? this.hostedZoneName.includes(x.Name) : x.Name == this.hostedZoneName);
+      if (hostedZones.length == 0) {
         throw "no hosted zone for domain found"
       }
 
-      this.hostedZoneId = hostedZone[0].Id.replace(/\/hostedzone\//g, '');
-      return this.hostedZoneId;
+      this.hostedZoneIds = hostedZones.map(({ Id, Name }) => {
+        return { hostedZoneId: Id.replace(/\/hostedzone\//g, ''), Name: Name.substr(0, Name.length - 1) };
+      });
+      return this.hostedZoneIds;
     }).catch(error => {
       this.serverless.cli.log('certificate validation failed', error);
       console.log('problem', error);
@@ -255,38 +258,40 @@ class CreateCertificatePlugin {
    * at least a short time after the cert has been created, thats why you should delay this call a bit after u created a new cert
    */
   createRecordSetForDnsValidation(certificate) {
-    return this.getHostedZoneId().then((hostedZoneId) => {
+    return this.getHostedZoneId().then((hostedZoneIds) => {
 
-      let changes = certificate.Certificate.DomainValidationOptions.map((x) => {
-        return {
-          Action: "CREATE",
-          ResourceRecordSet: {
-            Name: x.ResourceRecord.Name,
-            ResourceRecords: [
-              {
-                Value: x.ResourceRecord.Value
-              }
-            ],
-            TTL: 60,
-            Type: x.ResourceRecord.Type
+      return Promise.all(hostedZoneIds.map(({ hostedZoneId, Name }) => {
+        let changes = certificate.Certificate.DomainValidationOptions.filter(({DomainName}) => DomainName.endsWith(Name)).map((x) => {
+          return {
+            Action: "CREATE",
+            ResourceRecordSet: {
+              Name: x.ResourceRecord.Name,
+              ResourceRecords: [
+                {
+                  Value: x.ResourceRecord.Value
+                }
+              ],
+              TTL: 60,
+              Type: x.ResourceRecord.Type
+            }
           }
-        }
-      });
+        });
 
-      var params = {
-        ChangeBatch: {
-          Changes: changes,
-          Comment: `DNS Validation for certificate ${certificate.Certificate.DomainValidationOptions[0].DomainName}`
-        },
-        HostedZoneId: hostedZoneId
-      };
-      return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-        this.serverless.cli.log('dns validation record(s) created - certificate is ready for use after validation has gone through');
-      }).catch(error => {
-        this.serverless.cli.log('could not create record set for dns validation', error);
-        console.log('problem', error);
-        throw error;
-      });
+        var params = {
+          ChangeBatch: {
+            Changes: changes,
+            Comment: `DNS Validation for certificate ${Name}`
+          },
+          HostedZoneId: hostedZoneId
+        };
+        return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
+          this.serverless.cli.log('dns validation record(s) created - certificate is ready for use after validation has gone through');
+        }).catch(error => {
+          this.serverless.cli.log('could not create record set for dns validation', error);
+          console.log('problem', error);
+          throw error;
+        });
+      }));
     });
   }
 
