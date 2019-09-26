@@ -49,3 +49,4 @@ custom:
     tags:
       Name: 'somedomain.com'
       Environment: 'prod'
+    rewriteRecords: false

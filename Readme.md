@@ -81,6 +81,8 @@ open serverless.yml and add the following:
                 tags:
                     Name: 'somedomain.com'
                     Environment: 'prod'
+                //optional default false. this is useful if you managed to delete your certificate but the dns validation records still exist
+                rewriteRecords: false
 
 
 now you can run:
@@ -122,6 +124,7 @@ Open serverless.yml and add the following:
                 hostedZoneIds: 'XXXXXXXXX' //required if hostedZoneNames is not set
                 region: eu-west-1 // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
                 enabled: true // optional - default is true. For some stages you may not want to use certificates (and custom domains associated with it).
+                rewriteRecords: false
 
 Now you can run:
 
