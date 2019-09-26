@@ -59,6 +59,12 @@ class CreateCertificatePlugin {
         })
       }
 
+      let x = await this.getHostedZoneIds();
+
+      console.log("zones", x);
+
+      return;
+
       this.initialized = true;
     }
   }
@@ -235,13 +241,8 @@ class CreateCertificatePlugin {
 
     return this.route53.listHostedZones({}).promise().then(data => {
 
-      if (this.hostedZoneIds.length > 0) {
-        return data.HostedZones.filter(x => this.hostedZoneIds.includes(x.Id.replace(/\/hostedzone\//g, ''))).map(({Id, Name}) => {
-          return {hostedZoneId: Id.replace(/\/hostedzone\//g, ''), Name: Name.substr(0, Name.length - 1)}
-        })
-      }
+      let hostedZones = data.HostedZones.filter(x => this.hostedZoneIds.includes(x.Id.replace(/\/hostedzone\//g, '')) || this.hostedZoneNames.includes(x.Name));
 
-      let hostedZones = data.HostedZones.filter(x => this.hostedZoneNames.includes(x.Name));
       if (hostedZones.length == 0) {
         throw "no hosted zone for domain found"
       }
