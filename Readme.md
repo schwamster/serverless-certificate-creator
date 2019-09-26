@@ -62,9 +62,9 @@ open serverless.yml and add the following:
                 certificateName: 'abc.somedomain.io'
                 //optional
                 idempotencyToken: 'abcsomedomainio'
-                //required if hostedZoneId is not set, alternativly as an array
+                //required if hostedZoneIds is not set, alternativly as an array
                 hostedZoneNames: 'somedomain.io.' 
-                //required if hostedZoneName is not set
+                //required if hostedZoneNames is not set
                 hostedZoneIds: 'XXXXXXXXX'
                 // optional default is false. if you set it to true you will get a new file (after executing serverless create-cert), that contains certificate info that you can use in your deploy pipeline, alternativly as an array
                 writeCertInfoToFile: false 
@@ -118,8 +118,8 @@ Open serverless.yml and add the following:
             customCertificate:
                 certificateName: 'abc.somedomain.io' //required
                 idempotencyToken: 'abcsomedomainio' //optional
-                hostedZoneNames: 'somedomain.io.' //required if hostedZoneId is not set 
-                hostedZoneId: 'XXXXXXXXX' //required if hostedZoneName is not set
+                hostedZoneNames: 'somedomain.io.' //required if hostedZoneIds is not set 
+                hostedZoneIds: 'XXXXXXXXX' //required if hostedZoneNames is not set
                 region: eu-west-1 // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
                 enabled: true // optional - default is true. For some stages you may not want to use certificates (and custom domains associated with it).
 
