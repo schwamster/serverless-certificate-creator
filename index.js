@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
+var packageJson = require('./package.json');
 
 const unsupportedRegionPrefixes = ['cn-'];
 
@@ -13,7 +14,7 @@ class CreateCertificatePlugin {
     this.serverless = serverless;
     this.options = options;
     this.initialized = false;
-
+    this.serverless.cli.log(`serverless-certificate-creator version ${packageJson.version} called`);
     this.commands = {
       'create-cert': {
         usage: 'creates a certificate for an existing domain/hosted zone',
@@ -28,6 +29,14 @@ class CreateCertificatePlugin {
       'after:deploy:deploy': this.certificateSummary.bind(this),
       'after:info:info': this.certificateSummary.bind(this),
     };
+
+    this.variableResolvers = {
+      certificate: {
+        resolver: this.getCertificateProperty.bind(this),
+        isDisabledAtPrepopulation: true,
+        serviceName: 'serverless-certificate-creator depends on AWS credentials.'
+      }
+    };
   }
 
   initializeVariables() {
@@ -38,12 +47,15 @@ class CreateCertificatePlugin {
         this.route53 = new this.serverless.providers.aws.sdk.Route53(credentials);
         this.region = this.serverless.service.custom.customCertificate.region || 'us-east-1';
         this.domain = this.serverless.service.custom.customCertificate.certificateName;
-        this.hostedZoneId = this.serverless.service.custom.customCertificate.hostedZoneId;
-        this.hostedZoneName = this.serverless.service.custom.customCertificate.hostedZoneName;
+        //hostedZoneId is mapped for backwards compatibility
+        this.hostedZoneIds = this.serverless.service.custom.customCertificate.hostedZoneIds ? this.serverless.service.custom.customCertificate.hostedZoneIds : (this.serverless.service.custom.customCertificate.hostedZoneId) ? [].concat(this.serverless.service.custom.customCertificate.hostedZoneId) : [];
+        //hostedZoneName is mapped for backwards compatibility
+        this.hostedZoneNames = this.serverless.service.custom.customCertificate.hostedZoneNames ? this.serverless.service.custom.customCertificate.hostedZoneNames : (this.serverless.service.custom.customCertificate.hostedZoneName) ? [].concat(this.serverless.service.custom.customCertificate.hostedZoneName) : [];
         const acmCredentials = Object.assign({}, credentials, { region: this.region });
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
         this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
         this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
+        this.rewriteRecords = this.serverless.service.custom.customCertificate.rewriteRecords || false;
         this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
         this.subjectAlternativeNames = this.serverless.service.custom.customCertificate.subjectAlternativeNames || [];
         this.tags = this.serverless.service.custom.customCertificate.tags || {};
@@ -55,7 +67,6 @@ class CreateCertificatePlugin {
           }
         })
       }
-
       this.initialized = true;
     }
   }
@@ -110,7 +121,7 @@ class CreateCertificatePlugin {
         CertificateArn: certificateArn,
         Tags: mappedTags
       }
-  
+
       this.serverless.cli.log(`tagging certificate`);
       return this.acm.addTagsToCertificate(params).promise().catch(error => {
         this.serverless.cli.log('tagging certificate failed', error);
@@ -228,21 +239,19 @@ class CreateCertificatePlugin {
     });
   }
 
-  getHostedZoneId() {
+  getHostedZoneIds() {
 
     return this.route53.listHostedZones({}).promise().then(data => {
 
-      if (this.hostedZoneId) {
-        return this.hostedZoneId;
-      }
+      let hostedZones = data.HostedZones.filter(x => this.hostedZoneIds.includes(x.Id.replace(/\/hostedzone\//g, '')) || this.hostedZoneNames.includes(x.Name));
 
-      let hostedZone = data.HostedZones.filter(x => x.Name == this.hostedZoneName);
-      if (hostedZone.length == 0) {
+      if (hostedZones.length == 0) {
         throw "no hosted zone for domain found"
       }
 
-      this.hostedZoneId = hostedZone[0].Id.replace(/\/hostedzone\//g, '');
-      return this.hostedZoneId;
+      return hostedZones.map(({ Id, Name }) => {
+        return { hostedZoneId: Id.replace(/\/hostedzone\//g, ''), Name: Name.substr(0, Name.length - 1) };
+      });
     }).catch(error => {
       this.serverless.cli.log('certificate validation failed', error);
       console.log('problem', error);
@@ -255,38 +264,40 @@ class CreateCertificatePlugin {
    * at least a short time after the cert has been created, thats why you should delay this call a bit after u created a new cert
    */
   createRecordSetForDnsValidation(certificate) {
-    return this.getHostedZoneId().then((hostedZoneId) => {
+    return this.getHostedZoneIds().then((hostedZoneIds) => {
 
-      let changes = certificate.Certificate.DomainValidationOptions.map((x) => {
-        return {
-          Action: "CREATE",
-          ResourceRecordSet: {
-            Name: x.ResourceRecord.Name,
-            ResourceRecords: [
-              {
-                Value: x.ResourceRecord.Value
-              }
-            ],
-            TTL: 60,
-            Type: x.ResourceRecord.Type
+      return Promise.all(hostedZoneIds.map(({ hostedZoneId, Name }) => {
+        let changes = certificate.Certificate.DomainValidationOptions.filter(({DomainName}) => DomainName.endsWith(Name)).map((x) => {
+          return {
+            Action: this.rewriteRecords ? "UPSERT" : "CREATE",
+            ResourceRecordSet: {
+              Name: x.ResourceRecord.Name,
+              ResourceRecords: [
+                {
+                  Value: x.ResourceRecord.Value
+                }
+              ],
+              TTL: 60,
+              Type: x.ResourceRecord.Type
+            }
           }
-        }
-      });
+        });
 
-      var params = {
-        ChangeBatch: {
-          Changes: changes,
-          Comment: `DNS Validation for certificate ${certificate.Certificate.DomainValidationOptions[0].DomainName}`
-        },
-        HostedZoneId: hostedZoneId
-      };
-      return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-        this.serverless.cli.log('dns validation record(s) created - certificate is ready for use after validation has gone through');
-      }).catch(error => {
-        this.serverless.cli.log('could not create record set for dns validation', error);
-        console.log('problem', error);
-        throw error;
-      });
+        var params = {
+          ChangeBatch: {
+            Changes: changes,
+            Comment: `DNS Validation for certificate ${Name}`
+          },
+          HostedZoneId: hostedZoneId
+        };
+        return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
+          this.serverless.cli.log('dns validation record(s) created - certificate is ready for use after validation has gone through');
+        }).catch(error => {
+          this.serverless.cli.log('could not create record set for dns validation', error);
+          console.log('problem', error);
+          throw error;
+        });
+      }));
     });
   }
 
@@ -305,6 +316,26 @@ class CreateCertificatePlugin {
       this.serverless.cli.consoleLog(`  ${existingCertificate.CertificateArn} => ${existingCertificate.DomainName}`);
       return true;
     });
+  }
+
+  getCertificateProperty(src) {
+    this.initializeVariables();
+    let [s, domainName, property] = src.split(':');
+    return this.listCertificates()
+      .then(({ CertificateSummaryList }) => {
+        let cert = CertificateSummaryList.filter(({ DomainName }) => DomainName == domainName)[0];
+        if (cert && cert[property]) {
+          return cert[property];
+        } else {
+          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
+          return '';
+        }
+      })
+      .catch(error => {
+        console.log(this.domain, this.region);
+        this.serverless.cli.log('Could not find certificate property attempting to create...');
+        throw error;
+      });
   }
 }
 

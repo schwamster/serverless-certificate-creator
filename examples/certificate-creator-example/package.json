@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "serverless-certificate-creator": "^1.0.8",
+    "serverless-certificate-creator": "^1.2.0",
     "serverless-domain-manager": "^3.2.6"
   }
 }

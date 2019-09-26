@@ -43,7 +43,7 @@ Check out their getting started guide for more information [here](https://server
 Make sure you have the following installed before starting:
 * [nodejs](https://nodejs.org/en/download/)
 * [npm](https://www.npmjs.com/get-npm?utm_source=house&utm_medium=homepage&utm_campaign=free%20orgs&utm_term=Install%20npm)
-* [serverless](https://serverless.com/framework/docs/providers/aws/guide/installation/)
+* [serverless](https://serverless.com/framework/docs/providers/aws/guide/installation/)  >= v1.52.0
 
 # Usage
 
@@ -62,11 +62,11 @@ open serverless.yml and add the following:
                 certificateName: 'abc.somedomain.io'
                 //optional
                 idempotencyToken: 'abcsomedomainio'
-                //required if hostedZoneId is not set
-                hostedZoneName: 'somedomain.io.' 
-                //required if hostedZoneName is not set
-                hostedZoneId: 'XXXXXXXXX'
-                // optional default is false. if you set it to true you will get a new file (after executing serverless create-cert), that contains certificate info that you can use in your deploy pipeline
+                //required if hostedZoneIds is not set, alternativly as an array
+                hostedZoneNames: 'somedomain.io.' 
+                //required if hostedZoneNames is not set
+                hostedZoneIds: 'XXXXXXXXX'
+                // optional default is false. if you set it to true you will get a new file (after executing serverless create-cert), that contains certificate info that you can use in your deploy pipeline, alternativly as an array
                 writeCertInfoToFile: false 
                 // optional, only used when writeCertInfoToFile is set to true. It sets the name of the file containing the cert info
                 certInfoFileName: 'cert-info.yml' 
@@ -81,6 +81,8 @@ open serverless.yml and add the following:
                 tags:
                     Name: 'somedomain.com'
                     Environment: 'prod'
+                //optional default false. this is useful if you managed to delete your certificate but the dns validation records still exist
+                rewriteRecords: false
 
 
 now you can run:
@@ -118,10 +120,11 @@ Open serverless.yml and add the following:
             customCertificate:
                 certificateName: 'abc.somedomain.io' //required
                 idempotencyToken: 'abcsomedomainio' //optional
-                hostedZoneName: 'somedomain.io.' //required if hostedZoneId is not set
-                hostedZoneId: 'XXXXXXXXX' //required if hostedZoneName is not set
+                hostedZoneNames: 'somedomain.io.' //required if hostedZoneIds is not set 
+                hostedZoneIds: 'XXXXXXXXX' //required if hostedZoneNames is not set
                 region: eu-west-1 // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
                 enabled: true // optional - default is true. For some stages you may not want to use certificates (and custom domains associated with it).
+                rewriteRecords: false
 
 Now you can run:
 
@@ -129,6 +132,14 @@ Now you can run:
         serverless create_domain
 
 Please make sure to check out the complete sample project [here](https://github.com/schwamster/serverless-certificate-creator/tree/master/examples/certificate-creator-example).
+
+### Reference Certificate Arn via variableResolvers
+
+Since version 1.2.0 of this plugin you can use the following syntax to access the certificates Arn in other plugins
+
+        ${certificate:${self:custom.customCertificate.certificateName}:CertificateArn}
+
+see the serverless [docs](https://serverless.com/framework/docs/providers/aws/guide/plugins#custom-variable-types) for more information
 
 ### License
 
