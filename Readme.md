@@ -43,7 +43,7 @@ Check out their getting started guide for more information [here](https://server
 Make sure you have the following installed before starting:
 * [nodejs](https://nodejs.org/en/download/)
 * [npm](https://www.npmjs.com/get-npm?utm_source=house&utm_medium=homepage&utm_campaign=free%20orgs&utm_term=Install%20npm)
-* [serverless](https://serverless.com/framework/docs/providers/aws/guide/installation/)
+* [serverless](https://serverless.com/framework/docs/providers/aws/guide/installation/)  >= v1.52.0
 
 # Usage
 
@@ -129,6 +129,14 @@ Now you can run:
         serverless create_domain
 
 Please make sure to check out the complete sample project [here](https://github.com/schwamster/serverless-certificate-creator/tree/master/examples/certificate-creator-example).
+
+### Reference Certificate Arn via variableResolvers
+
+Since version 1.2.0 of this plugin you can use the following syntax to access the certificates Arn in other plugins
+
+        ${certificate:${self:custom.customCertificate.certificateName}:CertificateArn}
+
+see the serverless [docs](https://serverless.com/framework/docs/providers/aws/guide/plugins#custom-variable-types) for more information
 
 ### License
 

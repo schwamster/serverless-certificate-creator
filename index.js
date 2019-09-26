@@ -39,7 +39,7 @@ class CreateCertificatePlugin {
     };
   }
 
-  async initializeVariables() {
+  initializeVariables() {
     if (!this.initialized) {
       this.enabled = this.evaluateEnabled();
       if (this.enabled) {
@@ -66,13 +66,6 @@ class CreateCertificatePlugin {
           }
         })
       }
-
-      let x = await this.getHostedZoneIds();
-
-      console.log("zones", x);
-
-      return;
-
       this.initialized = true;
     }
   }
