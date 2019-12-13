@@ -22,12 +22,19 @@ class CreateCertificatePlugin {
           'create'
         ]
       },
+      'remove-cert': {
+        usage: 'removes the certificate previously created by create-cert command',
+        lifecycleEvents: [
+          'remove'
+        ]
+      }
     };
 
     this.hooks = {
       'create-cert:create': this.createCertificate.bind(this),
       'after:deploy:deploy': this.certificateSummary.bind(this),
       'after:info:info': this.certificateSummary.bind(this),
+      'remove-cert:remove': this.deleteCertificate.bind(this),
     };
 
     this.variableResolvers = {
@@ -224,6 +231,46 @@ class CreateCertificatePlugin {
     })
   }
 
+  /**
+   * Deletes the certificate for the given options set in serverless.yml under custom->customCertificate
+   * (if it exists)
+   */
+  deleteCertificate() {
+    this.initializeVariables();
+    if (!this.enabled) {
+      return this.reportDisabled();
+    }
+    this.serverless.cli.log(`Trying to delete certificate for ${this.domain} in ${this.region} ...`);
+    return this.getExistingCertificate().then(existingCert => {
+
+
+      if (!existingCert) {
+        this.serverless.cli.log(`Certificate for ${this.domain} in ${this.region} does not exist. Skipping ...`);
+        return;
+      }
+
+      let params = {
+        CertificateArn: existingCert.CertificateArn
+      };
+
+      return this.acm.describeCertificate(params).promise()
+        .then(certificate => this.deleteRecordSetForDnsValidation(certificate))
+        .then(() => this.acm.deleteCertificate(params).promise())
+        .then(() => this.serverless.cli.log(`deleted cert: ${existingCert.CertificateArn}`))
+        .catch(error => {
+          this.serverless.cli.log('could not delete cert', error);
+          console.log('problem', error);
+          throw error;
+        });
+
+
+    }).catch(error => {
+      this.serverless.cli.log('could not get certs', error);
+      console.log('problem', error);
+      throw error;
+    })
+  }
+
   waitUntilCertificateIsValidated(certificateArn) {
     this.serverless.cli.log('waiting until certificate is validated...');
     var params = {
@@ -294,6 +341,46 @@ class CreateCertificatePlugin {
           this.serverless.cli.log('dns validation record(s) created - certificate is ready for use after validation has gone through');
         }).catch(error => {
           this.serverless.cli.log('could not create record set for dns validation', error);
+          console.log('problem', error);
+          throw error;
+        });
+      }));
+    });
+  }
+
+  /**
+   * deletes the record set required for validation type dns.
+   */
+  deleteRecordSetForDnsValidation(certificate) {
+    return this.getHostedZoneIds().then((hostedZoneIds) => {
+
+      return Promise.all(hostedZoneIds.map(({ hostedZoneId, Name }) => {
+        let changes = certificate.Certificate.DomainValidationOptions.filter(({DomainName}) => DomainName.endsWith(Name)).map((x) => {
+          return {
+            Action: "DELETE",
+            ResourceRecordSet: {
+              Name: x.ResourceRecord.Name,
+              ResourceRecords: [
+                {
+                  Value: x.ResourceRecord.Value
+                }
+              ],
+              TTL: 60,
+              Type: x.ResourceRecord.Type
+            }
+          }
+        });
+
+        var params = {
+          ChangeBatch: {
+            Changes: changes
+          },
+          HostedZoneId: hostedZoneId
+        };
+        return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
+          this.serverless.cli.log('dns validation record(s) deleted');
+        }).catch(error => {
+          this.serverless.cli.log('could not delete record set for dns validation', error);
           console.log('problem', error);
           throw error;
         });
