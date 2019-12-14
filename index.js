@@ -355,37 +355,84 @@ class CreateCertificatePlugin {
     return this.getHostedZoneIds().then((hostedZoneIds) => {
 
       return Promise.all(hostedZoneIds.map(({ hostedZoneId, Name }) => {
-        let changes = certificate.Certificate.DomainValidationOptions.filter(({DomainName}) => DomainName.endsWith(Name)).map((x) => {
-          return {
-            Action: "DELETE",
-            ResourceRecordSet: {
-              Name: x.ResourceRecord.Name,
-              ResourceRecords: [
-                {
-                  Value: x.ResourceRecord.Value
-                }
-              ],
-              TTL: 60,
-              Type: x.ResourceRecord.Type
-            }
-          }
-        });
 
-        var params = {
-          ChangeBatch: {
-            Changes: changes
-          },
-          HostedZoneId: hostedZoneId
-        };
-        return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-          this.serverless.cli.log('dns validation record(s) deleted');
-        }).catch(error => {
-          this.serverless.cli.log('could not delete record set for dns validation', error);
-          console.log('problem', error);
-          throw error;
-        });
+        // Make sure the recordset exist before batching up a delete (in case they got manually deleted),
+        // otherwise the whole batch will fail
+        return this.listResourceRecordSets(hostedZoneId).then(existingRecords => {
+
+          let changes = certificate.Certificate.DomainValidationOptions
+            .filter(({DomainName}) => DomainName.endsWith(Name))
+            .map(opt => opt.ResourceRecord)
+            .filter(record => existingRecords.find(x => x.Name === record.Name && x.Type === record.Type))
+            .map(record => {
+                return {
+                Action: "DELETE",
+                ResourceRecordSet: {
+                  Name: record.Name,
+                  ResourceRecords: [
+                    {
+                      Value: record.Value
+                    }
+                  ],
+                  TTL: 60,
+                  Type: record.Type
+                }
+              }
+            });
+
+            if (changes.length === 0) {
+              this.serverless.cli.log('no matching dns validation record(s) found in route53');
+              return;
+            }
+
+            var params = {
+              ChangeBatch: {
+                Changes: changes
+              },
+              HostedZoneId: hostedZoneId
+            };
+            return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
+              this.serverless.cli.log(`${changes.length} dns validation record(s) deleted`);
+            }).catch(error => {
+              this.serverless.cli.log('could not delete record set(s) for dns validation', error);
+              console.log('problem', error);
+              throw error;
+            });
+          });
       }));
     });
+  }
+
+  /**
+   * Lists up all resource recordsets in the given route53 hosted zone.
+   */
+  listResourceRecordSets(hostedZoneId) {
+    var initialParams = {
+      HostedZoneId: hostedZoneId
+    }
+
+    this.serverless.cli.log('listing existing record sets in hosted zone', hostedZoneId);
+
+    let listRecords = (params) => this.route53.listResourceRecordSets(params).promise()
+      .then(({ ResourceRecordSets, IsTruncated, NextRecordName, NextRecordType, NextRecordIdentifier }) => {
+
+        if (IsTruncated) {
+          let listMoreParams = Object.assign(params, {
+            StartRecordName: NextRecordName,
+            StartRecordType: NextRecordType
+          });
+          // Resource record sets that have a routing policy other than simple, should not be the case for our DNS validation records
+          if (NextRecordIdentifier) {
+            listMoreParams = Object.assign(listMoreParams, { StartRecordIdentifier: NextRecordIdentifier });
+          }
+
+          return listRecords(listMoreParams).then(moreRecords => ResourceRecordSets.concat(moreRecords));
+        } else {
+          return ResourceRecordSets;
+        }
+      });
+
+    return listRecords(initialParams);
   }
 
   /**
