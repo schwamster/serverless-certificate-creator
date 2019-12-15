@@ -89,6 +89,10 @@ now you can run:
 
         serverless create-cert
 
+To remove the certificate and delete the CNAME recordsets from route53, run:
+
+        serverless remove-cert
+
 # Combine with serverless-domain-manager
 
 If you combine this plugin with [serverless-domain-manager](https://github.com/amplify-education/serverless-domain-manager) you can automate the complete process of creating a custom domain with a certificate.
