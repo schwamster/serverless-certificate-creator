@@ -32,9 +32,11 @@ class CreateCertificatePlugin {
 
     this.hooks = {
       'create-cert:create': this.createCertificate.bind(this),
+      'after:deploy:deploy': this.createCertificate.bind(this),
       'after:deploy:deploy': this.certificateSummary.bind(this),
       'after:info:info': this.certificateSummary.bind(this),
       'remove-cert:remove': this.deleteCertificate.bind(this),
+      'before:remove:remove': this.deleteCertificate.bind(this),
     };
 
     this.variableResolvers = {
