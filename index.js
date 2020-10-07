@@ -123,6 +123,9 @@ class CreateCertificatePlugin {
           Value: this.tags[tag]
         }
       });
+
+      //TODO: remove existing tags
+
       const params = {
         CertificateArn: certificateArn,
         Tags: mappedTags
@@ -181,9 +184,9 @@ class CreateCertificatePlugin {
 
 
       if (existingCert) {
-        this.serverless.cli.log(`Certificate for ${this.domain} in ${this.region} already exists with arn "${existingCert.CertificateArn}". Skipping ...`);
+        this.serverless.cli.log(`Certificate for ${this.domain} in ${this.region} already exists with arn "${existingCert.CertificateArn}". Skipping certificate creation ...`);
         this.writeCertificateInfoToFile(existingCert.CertificateArn);
-        return;
+        return this.tagCertificate(existingCert.CertificateArn);
       }
 
       let params = {
