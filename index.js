@@ -14,7 +14,6 @@ class CreateCertificatePlugin {
     this.serverless = serverless;
     this.options = options;
     this.initialized = false;
-    this.serverless.cli.log(`serverless-certificate-creator version ${packageJson.version} called`);
     this.commands = {
       'create-cert': {
         usage: 'creates a certificate for an existing domain/hosted zone',
@@ -105,7 +104,7 @@ class CreateCertificatePlugin {
 
   reportDisabled() {
     return Promise.resolve()
-      .then(() => this.serverless.cli.log('serverless-certificate-creator: Custom domain is disabled.'));
+      .then(() => this.serverless.cli.log('serverless-certificate-creator: disabled.'));
   }
 
   listCertificates() {
