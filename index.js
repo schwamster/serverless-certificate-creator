@@ -112,31 +112,60 @@ class CreateCertificatePlugin {
   }
 
   /**
+   * removes all tags
+   */
+  removeTags(certificateArn) {
+
+    const listTagsRequest = {
+      CertificateArn: certificateArn
+    };
+
+    return this.acm.listTagsForCertificate(listTagsRequest).promise().then(listTagsResult => {
+
+      if (listTagsResult.Tags && listTagsResult.Tags.length > 0) {
+        const removeTagsRequest = {
+          CertificateArn: certificateArn,
+          Tags: listTagsResult.Tags
+        };
+        return this.acm.removeTagsFromCertificate(removeTagsRequest).promise();
+      } else {
+        return Promise.resolve();
+      }
+    });
+
+  }
+
+  /**
    * tags a certificate
    */
   tagCertificate(certificateArn) {
-    let mappedTags = [];
-    if (Object.keys(this.tags).length) {
-      mappedTags = Object.keys(this.tags).map((tag) => {
-        return {
-          Key: tag,
-          Value: this.tags[tag]
+
+    return this.removeTags(certificateArn).then(() => {
+      let mappedTags = [];
+      if (Object.keys(this.tags).length) {
+        mappedTags = Object.keys(this.tags).map((tag) => {
+          return {
+            Key: tag,
+            Value: this.tags[tag]
+          }
+        });
+
+        const tagRequest = {
+          CertificateArn: certificateArn,
+          Tags: mappedTags
         }
-      });
-      const params = {
-        CertificateArn: certificateArn,
-        Tags: mappedTags
+
+        this.serverless.cli.log(`tagging certificate`);
+        return this.acm.addTagsToCertificate(tagRequest).promise().catch(error => {
+          this.serverless.cli.log('tagging certificate failed', error);
+          console.log('problem', error);
+          throw error;
+        });
+      } else {
+        return Promise.resolve();
       }
+    });
 
-      this.serverless.cli.log(`tagging certificate`);
-      return this.acm.addTagsToCertificate(params).promise().catch(error => {
-        this.serverless.cli.log('tagging certificate failed', error);
-        console.log('problem', error);
-        throw error;
-      });
-    }
-
-    return Promise.resolve();
   }
 
   getExistingCertificate() {
@@ -181,9 +210,9 @@ class CreateCertificatePlugin {
 
 
       if (existingCert) {
-        this.serverless.cli.log(`Certificate for ${this.domain} in ${this.region} already exists with arn "${existingCert.CertificateArn}". Skipping ...`);
+        this.serverless.cli.log(`Certificate for ${this.domain} in ${this.region} already exists with arn "${existingCert.CertificateArn}". Skipping certificate creation ...`);
         this.writeCertificateInfoToFile(existingCert.CertificateArn);
-        return;
+        return this.tagCertificate(existingCert.CertificateArn);
       }
 
       let params = {
@@ -313,7 +342,7 @@ class CreateCertificatePlugin {
     return this.getHostedZoneIds().then((hostedZoneIds) => {
 
       return Promise.all(hostedZoneIds.map(({ hostedZoneId, Name }) => {
-        let changes = certificate.Certificate.DomainValidationOptions.filter(({DomainName}) => DomainName.endsWith(Name)).map((x) => {
+        let changes = certificate.Certificate.DomainValidationOptions.filter(({ DomainName }) => DomainName.endsWith(Name)).map((x) => {
           return {
             Action: this.rewriteRecords ? "UPSERT" : "CREATE",
             ResourceRecordSet: {
@@ -360,11 +389,11 @@ class CreateCertificatePlugin {
         return this.listResourceRecordSets(hostedZoneId).then(existingRecords => {
 
           let changes = certificate.Certificate.DomainValidationOptions
-            .filter(({DomainName}) => DomainName.endsWith(Name))
+            .filter(({ DomainName }) => DomainName.endsWith(Name))
             .map(opt => opt.ResourceRecord)
             .filter(record => existingRecords.find(x => x.Name === record.Name && x.Type === record.Type))
             .map(record => {
-                return {
+              return {
                 Action: "DELETE",
                 ResourceRecordSet: {
                   Name: record.Name,
@@ -379,25 +408,25 @@ class CreateCertificatePlugin {
               }
             });
 
-            if (changes.length === 0) {
-              this.serverless.cli.log('no matching dns validation record(s) found in route53');
-              return;
-            }
+          if (changes.length === 0) {
+            this.serverless.cli.log('no matching dns validation record(s) found in route53');
+            return;
+          }
 
-            var params = {
-              ChangeBatch: {
-                Changes: changes
-              },
-              HostedZoneId: hostedZoneId
-            };
-            return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
-              this.serverless.cli.log(`${changes.length} dns validation record(s) deleted`);
-            }).catch(error => {
-              this.serverless.cli.log('could not delete record set(s) for dns validation', error);
-              console.log('problem', error);
-              throw error;
-            });
+          var params = {
+            ChangeBatch: {
+              Changes: changes
+            },
+            HostedZoneId: hostedZoneId
+          };
+          return this.route53.changeResourceRecordSets(params).promise().then(recordSetResult => {
+            this.serverless.cli.log(`${changes.length} dns validation record(s) deleted`);
+          }).catch(error => {
+            this.serverless.cli.log('could not delete record set(s) for dns validation', error);
+            console.log('problem', error);
+            throw error;
           });
+        });
       }));
     });
   }
