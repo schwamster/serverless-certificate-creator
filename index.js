@@ -483,7 +483,14 @@ class CreateCertificatePlugin {
   getCertificateProperty(src) {
     this.initializeVariables();
     let s, domainName, property;
-    if (this.serverless.configurationInput.variablesResolutionMode === 20210219) {
+
+    let useModernVariableResolver = false;
+    try {
+       // Earlier version of serverless may not have 'configurationInput' property
+      useModernVariableResolver = this.serverless.configurationInput.variablesResolutionMode === 20210219
+    } catch(e) {}
+
+    if (useModernVariableResolver) {
       // User has set variablesResolutionMode: 20210219 (https://github.com/serverless/serverless/pull/8987/files)
       // Nested paths must be resolved with '.' instead of ':'
       const srcAsArray = src.split(':')[1].split('.');
