@@ -501,7 +501,6 @@ class CreateCertificatePlugin {
       .then(({ CertificateSummaryList }) => {
         let cert = CertificateSummaryList.filter(({ DomainName }) => DomainName == domainName)[0];
         if (cert && cert[property]) {
-          console.log('wörks');
           return cert[property];
         } else {
           this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
