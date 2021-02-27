@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
+const semver = require('semver')
 var packageJson = require('./package.json');
 
 const unsupportedRegionPrefixes = ['cn-'];
@@ -482,11 +483,25 @@ class CreateCertificatePlugin {
 
   getCertificateProperty(src) {
     this.initializeVariables();
-    let [s, domainName, property] = src.split(':');
+    let s, domainName, property;
+    let currentVersion = this.serverless.utils.getVersion();
+    
+    if (semver.gte(currentVersion, '3.0.0') || (this.serverless.configurationInput && this.serverless.configurationInput.variablesResolutionMode === 20210219)) {
+      // User has set variablesResolutionMode: 20210219 (https://github.com/serverless/serverless/pull/8987/files)
+      // Nested paths must be resolved with '.' instead of ':'
+      const srcAsArray = src.split(':')[1].split('.');
+      property = srcAsArray.pop();
+      domainName = srcAsArray.join('.');
+    } else {
+      // Deprecated once Serverless V3 released & new variable resolver becomes the default.
+      [s, domainName, property] = src.split(':');
+    }
+
     return this.listCertificates()
       .then(({ CertificateSummaryList }) => {
         let cert = CertificateSummaryList.filter(({ DomainName }) => DomainName == domainName)[0];
         if (cert && cert[property]) {
+          console.log('wörks');
           return cert[property];
         } else {
           this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
