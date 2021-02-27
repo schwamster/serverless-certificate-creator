@@ -11,6 +11,9 @@ var packageJson = require('./package.json');
 const unsupportedRegionPrefixes = ['cn-'];
 
 class CreateCertificatePlugin {
+  getEchoTestValue(src) {
+    return src.slice(5);
+  }
   constructor(serverless, options) {
     this.serverless = serverless;
     this.options = options;
@@ -482,10 +485,13 @@ class CreateCertificatePlugin {
   }
 
   getCertificateProperty(src) {
+    if (!this.enabled) {
+      return Promise.resolve('');
+    }
     this.initializeVariables();
     let s, domainName, property;
     let currentVersion = this.serverless.utils.getVersion();
-    
+
     if (semver.gte(currentVersion, '3.0.0') || (this.serverless.configurationInput && this.serverless.configurationInput.variablesResolutionMode === 20210219)) {
       // User has set variablesResolutionMode: 20210219 (https://github.com/serverless/serverless/pull/8987/files)
       // Nested paths must be resolved with '.' instead of ':'
