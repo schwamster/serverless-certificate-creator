@@ -485,10 +485,10 @@ class CreateCertificatePlugin {
   }
 
   getCertificateProperty(src) {
+    this.initializeVariables();
     if (!this.enabled) {
       return Promise.resolve('');
     }
-    this.initializeVariables();
     let s, domainName, property;
     let currentVersion = this.serverless.utils.getVersion();
 
