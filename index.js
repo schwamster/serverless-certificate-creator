@@ -49,26 +49,39 @@ class CreateCertificatePlugin {
     };
   }
 
+  /**
+   * Gets the details for the custom certificate from the service settings.
+   *
+   * If no details have been set, `null` is returned.
+   *
+   * @return {Object|null}
+   */
+  getCustomCertificateDetails() {
+    return (this.serverless.service.custom || {}).customCertificate || null;
+  }
+
   initializeVariables() {
     if (!this.initialized) {
       this.enabled = this.evaluateEnabled();
       if (this.enabled) {
+        const customCertificate = this.getCustomCertificateDetails() || {};
+
         const credentials = this.serverless.providers.aws.getCredentials();
         this.route53 = new this.serverless.providers.aws.sdk.Route53(credentials);
-        this.region = this.serverless.service.custom.customCertificate.region || 'us-east-1';
-        this.domain = this.serverless.service.custom.customCertificate.certificateName;
+        this.region = customCertificate.region || 'us-east-1';
+        this.domain = customCertificate.certificateName;
         //hostedZoneId is mapped for backwards compatibility
-        this.hostedZoneIds = this.serverless.service.custom.customCertificate.hostedZoneIds ? this.serverless.service.custom.customCertificate.hostedZoneIds : (this.serverless.service.custom.customCertificate.hostedZoneId) ? [].concat(this.serverless.service.custom.customCertificate.hostedZoneId) : [];
+        this.hostedZoneIds = customCertificate.hostedZoneIds ? customCertificate.hostedZoneIds : (customCertificate.hostedZoneId) ? [].concat(customCertificate.hostedZoneId) : [];
         //hostedZoneName is mapped for backwards compatibility
-        this.hostedZoneNames = this.serverless.service.custom.customCertificate.hostedZoneNames ? this.serverless.service.custom.customCertificate.hostedZoneNames : (this.serverless.service.custom.customCertificate.hostedZoneName) ? [].concat(this.serverless.service.custom.customCertificate.hostedZoneName) : [];
+        this.hostedZoneNames = customCertificate.hostedZoneNames ? customCertificate.hostedZoneNames : (customCertificate.hostedZoneName) ? [].concat(customCertificate.hostedZoneName) : [];
         const acmCredentials = Object.assign({}, credentials, { region: this.region });
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
-        this.idempotencyToken = this.serverless.service.custom.customCertificate.idempotencyToken;
-        this.writeCertInfoToFile = this.serverless.service.custom.customCertificate.writeCertInfoToFile || false;
-        this.rewriteRecords = this.serverless.service.custom.customCertificate.rewriteRecords || false;
-        this.certInfoFileName = this.serverless.service.custom.customCertificate.certInfoFileName || 'cert-info.yml';
-        this.subjectAlternativeNames = this.serverless.service.custom.customCertificate.subjectAlternativeNames || [];
-        this.tags = this.serverless.service.custom.customCertificate.tags || {};
+        this.idempotencyToken = customCertificate.idempotencyToken;
+        this.writeCertInfoToFile = customCertificate.writeCertInfoToFile || false;
+        this.rewriteRecords = customCertificate.rewriteRecords || false;
+        this.certInfoFileName = customCertificate.certInfoFileName || 'cert-info.yml';
+        this.subjectAlternativeNames = customCertificate.subjectAlternativeNames || [];
+        this.tags = customCertificate.tags || {};
 
         unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
           if (this.region.startsWith(unsupportedRegionPrefix)) {
@@ -92,7 +105,13 @@ class CreateCertificatePlugin {
    * If the property's value is provided, this should be boolean, otherwise an exception is thrown.
    */
   evaluateEnabled() {
-    const enabled = this.serverless.service.custom.customCertificate.enabled;
+    const customCertificate = this.getCustomCertificateDetails();
+
+    if (!customCertificate) {
+      return false;
+    }
+
+    const enabled = customCertificate.enabled;
     if (enabled === undefined) {
       return true;
     }
