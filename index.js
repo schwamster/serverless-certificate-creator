@@ -130,8 +130,15 @@ class CreateCertificatePlugin {
       .then(() => this.serverless.cli.log('serverless-certificate-creator: disabled.'));
   }
 
-  listCertificates() {
-    return this.acm.listCertificates({}).promise();
+  listCertificates(NextToken) {
+    return this.acm.listCertificates({ NextToken }).promise()
+      .then(data => {
+        if (data.NextToken) {
+          return this.listCertificates(data.NextToken)
+            .then(moreData => [...moreData, ...data.CertificateSummaryList]);
+        }
+        return Promise.resolve(data.CertificateSummaryList)
+      })
   }
 
   /**
@@ -194,7 +201,7 @@ class CreateCertificatePlugin {
   getExistingCertificate() {
     return this.listCertificates().then(data => {
 
-      let existingCerts = data.CertificateSummaryList.filter(cert => cert.DomainName === this.domain);
+      let existingCerts = data.filter(cert => cert.DomainName === this.domain);
       if (existingCerts.length > 0) {
         return existingCerts[0];
       }
@@ -523,8 +530,8 @@ class CreateCertificatePlugin {
     }
 
     return this.listCertificates()
-      .then(({ CertificateSummaryList }) => {
-        let cert = CertificateSummaryList.filter(({ DomainName }) => DomainName == domainName)[0];
+      .then((certificates) => {
+        let cert = certificates.filter(({ DomainName }) => DomainName == domainName)[0];
         if (cert && cert[property]) {
           return cert[property];
         } else {
