@@ -530,7 +530,7 @@ class CreateCertificatePlugin {
     }
 
     return this.listCertificates()
-      .then((certificates) => {
+      .then(certificates => {
         let cert = certificates.filter(({ DomainName }) => DomainName == domainName)[0];
         if (cert && cert[property]) {
           return cert[property];
