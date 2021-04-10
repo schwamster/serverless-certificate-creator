@@ -4,10 +4,16 @@
   "description": "creates a certificate that can be used for custom domains for your api gateway",
   "main": "index.js",
   "scripts": {
+    "release": "semantic-release -r git+ssh://git@github.com/schwamster/serverless-certificate-creator.git",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "schwamster",
   "license": "MIT",
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
   "dependencies": {
     "aws-sdk": "^2.320.0",
     "chalk": "^2.4.2",
@@ -16,7 +22,14 @@
     "semver": "^7.3.4",
     "yamljs": "^0.3.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@commitlint/cli": "^12.1.1",
+    "@commitlint/config-conventional": "^12.1.1",
+    "@semantic-release/changelog": "^5.0.1",
+    "@semantic-release/git": "^9.0.0",
+    "commitlint-circle": "^1.0.0",
+    "semantic-release": "^17.4.2"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/schwamster/serverless-certificate-creator.git"
@@ -24,5 +37,15 @@
   "bugs": {
     "url": "https://github.com/schwamster/serverless-certificate-creator/issues"
   },
-  "homepage": "https://github.com/schwamster/serverless-certificate-creator#readme"
+  "homepage": "https://github.com/schwamster/serverless-certificate-creator#readme",
+  "release": {
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/changelog",
+      "@semantic-release/npm",
+      "@semantic-release/git",
+      "@semantic-release/github"
+    ]
+  }
 }

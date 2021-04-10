@@ -8,9 +8,9 @@ defaults: &defaults
   working_directory: ~/repo
   docker:
     - image: circleci/node:10.15
-  
+
 jobs:
-  build:
+  install:
     <<: *defaults
     steps:
       - checkout
@@ -27,53 +27,39 @@ jobs:
 
       # run tests!
       # - run: npm test
-      
+
       - persist_to_workspace:
           root: ~/repo
           paths: .
-  publish-master:
+  commitlint:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - run: npx commitlint-circle
+
+  release:
     <<: *defaults
     steps:
       - attach_workspace:
           at: ~/repo
       - run: rm -r ./examples
-      - run:
-          name: Authenticate with registry
-          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
-      - run: npm publish
-  publish-branch:
-    <<: *defaults
-    steps:
-      - attach_workspace:
-          at: ~/repo
-      - run: rm -r ./examples
-      - run: 
-          name: bump rc version
-          command: |
-            PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
-            npm version --no-git-tag-version $PACKAGE_VERSION-rc-${CIRCLE_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
-      - run:
-          name: Authenticate with registry
-          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
-      - run: npm publish --tag rc-${CIRCLE_BRANCH}
-      
+      - run: npm run release
+
 workflows:
   version: 2
   build_and_publish:
     jobs:
-      - build
-      - publish-branch:
+      - install
+      - commitlint:
           requires:
-            - build
-          filters: 
-            branches:
-              ignore:  
-                - master
-      - publish-master:
+            - install
+      - release:
           requires:
-            - build          
-          filters: 
+            - commitlint
+            - install
+          filters:
             branches:
-              only:  
+              only:
                 - master
 
