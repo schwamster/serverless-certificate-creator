@@ -8,7 +8,7 @@ defaults: &defaults
   working_directory: ~/repo
   docker:
     - image: circleci/node:10.15
-  
+
 jobs:
   build:
     <<: *defaults
@@ -27,10 +27,16 @@ jobs:
 
       # run tests!
       # - run: npm test
-      
+
       - persist_to_workspace:
           root: ~/repo
           paths: .
+  formatting:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - run: npx prettier --check .
   publish-master:
     <<: *defaults
     steps:
@@ -39,7 +45,8 @@ jobs:
       - run: rm -r ./examples
       - run:
           name: Authenticate with registry
-          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
+          command:
+            echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
       - run: npm publish
   publish-branch:
     <<: *defaults
@@ -47,33 +54,36 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run: rm -r ./examples
-      - run: 
+      - run:
           name: bump rc version
           command: |
             PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
             npm version --no-git-tag-version $PACKAGE_VERSION-rc-${CIRCLE_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
       - run:
           name: Authenticate with registry
-          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
+          command:
+            echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
       - run: npm publish --tag rc-${CIRCLE_BRANCH}
-      
+
 workflows:
   version: 2
   build_and_publish:
     jobs:
       - build
+      - formatting:
+          requires:
+            - build
       - publish-branch:
           requires:
             - build
-          filters: 
+          filters:
             branches:
-              ignore:  
+              ignore:
                 - master
       - publish-master:
           requires:
-            - build          
-          filters: 
+            - build
+          filters:
             branches:
-              only:  
+              only:
                 - master
-
