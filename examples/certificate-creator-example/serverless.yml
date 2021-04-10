@@ -26,9 +26,9 @@ functions:
   hello:
     handler: handler.hello
     events:
-     - http:
-         path: example/something
-         method: get
+      - http:
+          path: example/something
+          method: get
 
 custom:
   customDomain:
@@ -41,9 +41,9 @@ custom:
     certificateName: 'certcreatorsample.greenelephant.io'
     idempotencyToken: 'certcreatorsamplegreenelephantio'
     writeCertInfoToFile: true
-    certInfoFileName: "certs/${self:provider.stage}/cert-info.yml"
+    certInfoFileName: 'certs/${self:provider.stage}/cert-info.yml'
     hostedZoneNames: 'greenelephant.io.'
-    subjectAlternativeNames : 
+    subjectAlternativeNames:
       - 'certcreatorsample1.greenelephant.io'
       - 'certcreatorsample2.greenelephant.io'
     tags:
