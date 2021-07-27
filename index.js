@@ -518,7 +518,7 @@ class CreateCertificatePlugin {
     });
   }
 
-  async getCertificateProperty({address, params, resolveConfigurationProperty, options}) {
+  async getCertificateProperty({address, params}) {
 
     const property = address
     const domainName = params[0]
