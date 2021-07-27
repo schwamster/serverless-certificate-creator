@@ -143,10 +143,15 @@ Since version 1.2.0 of this plugin you can use the following syntax to access th
 
         ${certificate:${self:custom.customCertificate.certificateName}:CertificateArn}
 
-If you are on version >= 2.27.0 of serverless & have elected to use the new variable resolver: `variablesResolutionMode: 20210219`.
-You must use the new supported syntax which is:
+If you are on version >= 2.27.0 of serverless & have elected to use the variable resolver: `variablesResolutionMode: 20210219`.
+You must use this supported syntax which is:
 
         ${certificate:${self:custom.customCertificate.certificateName}.CertificateArn}
+
+For the new variable resolver: `variablesResolutionMode: 20210326`:
+The new supported syntax is:
+
+        ${certificate(${self:custom.customCertificate.certificateName}):CertificateArn}
 
 see the serverless [docs](https://serverless.com/framework/docs/providers/aws/guide/plugins#custom-variable-types) for more information
 
