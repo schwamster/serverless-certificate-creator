@@ -42,7 +42,15 @@ class CreateCertificatePlugin {
 
     this.variableResolvers = {
       certificate: {
-        resolver: this.getCertificateProperty.bind(this),
+        resolver: this.getCertificatePropertyOld.bind(this),
+        isDisabledAtPrepopulation: true,
+        serviceName: 'serverless-certificate-creator depends on AWS credentials.'
+      }
+    };
+
+    this.configurationVariablesSources = {
+      certificate: {
+        resolve: this.getCertificateProperty.bind(this),
         isDisabledAtPrepopulation: true,
         serviceName: 'serverless-certificate-creator depends on AWS credentials.'
       }
@@ -510,7 +518,38 @@ class CreateCertificatePlugin {
     });
   }
 
-  getCertificateProperty(src) {
+  async getCertificateProperty({address, params}) {
+
+    const property = address
+    const domainName = params[0]
+
+    this.initializeVariables();
+    if (!this.enabled) {
+      return Promise.resolve('');
+    }
+
+    return this.listCertificates()
+      .then(certificates => {
+        let cert = certificates.filter(({ DomainName }) => DomainName == domainName)[0];
+        if (cert && cert[property]) {
+          return {
+            value: cert[property]
+          }
+        } else {
+          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
+          return {
+            value: ''
+          }
+        }
+      })
+      .catch(error => {
+        console.log(this.domain, this.region);
+        this.serverless.cli.log('Could not find certificate property attempting to create...');
+        throw error;
+      });
+  }
+
+  getCertificatePropertyOld(src) {
     this.initializeVariables();
     if (!this.enabled) {
       return Promise.resolve('');
