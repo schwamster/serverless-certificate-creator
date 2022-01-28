@@ -380,17 +380,22 @@ class CreateCertificatePlugin {
     return this.getHostedZoneIds().then((hostedZoneIds) => {
 
       return Promise.all(hostedZoneIds.map(({ hostedZoneId, Name }) => {
-        let changes = certificate.Certificate.DomainValidationOptions.filter(({ DomainName }) => DomainName.endsWith(Name)).map((x) => {
-          return {
-            Action: this.rewriteRecords ? "UPSERT" : "CREATE",
-            ResourceRecordSet: {
-              Name: x.ResourceRecord.Name,
-              ResourceRecords: [
-                {
-                  Value: x.ResourceRecord.Value
-                }
-              ],
-              TTL: 60,
+        let changes = Array.from(
+          certificate.Certificate.DomainValidationOptions.filter(({ DomainName }) => DomainName.endsWith(Name))
+        // Ensure unique Type-Name pairs
+				.reduce((map, record) => map.set(`${record.ResourceRecord.Type}-${record.ResourceRecord.Name}`, record), new Map())
+				.values()
+		).map((x) => {
+			return {
+				Action: this.rewriteRecords ? "UPSERT" : "CREATE",
+				ResourceRecordSet: {
+					Name: x.ResourceRecord.Name,
+					ResourceRecords: [
+						{
+							Value: x.ResourceRecord.Value,
+						},
+					],
+					TTL: 60,
               Type: x.ResourceRecord.Type
             }
           }
@@ -426,9 +431,14 @@ class CreateCertificatePlugin {
         // otherwise the whole batch will fail
         return this.listResourceRecordSets(hostedZoneId).then(existingRecords => {
 
-          let changes = certificate.Certificate.DomainValidationOptions
+          let changes = Array.from(
+            certificate.Certificate.DomainValidationOptions
             .filter(({ DomainName }) => DomainName.endsWith(Name))
             .map(opt => opt.ResourceRecord)
+            // Ensure unique record Type-Name pairs
+            .reduce((map, record) => map.set(`${record.Type}-${record.Name}`, record), new Map())
+            .values()
+          )
             .filter(record => existingRecords.find(x => x.Name === record.Name && x.Type === record.Type))
             .map(record => {
               return {
