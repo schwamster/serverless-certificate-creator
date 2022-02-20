@@ -93,6 +93,8 @@ To remove the certificate and delete the CNAME recordsets from route53, run:
 
         serverless remove-cert
 
+It's also possible to define multiple certificates to be used, in such case the `customCertificate` should be an array of objects described above.
+
 # Combine with serverless-domain-manager
 
 If you combine this plugin with [serverless-domain-manager](https://github.com/amplify-education/serverless-domain-manager) you can automate the complete process of creating a custom domain with a certificate.
@@ -130,6 +132,40 @@ Open serverless.yml and add the following:
                 enabled: true // optional - default is true. For some stages you may not want to use certificates (and custom domains associated with it).
                 rewriteRecords: false
 
+You can also modify serverless.yml like so, to support multiple certificates (possibly defined in different regions):
+
+        plugins:
+        - serverless-certificate-creator
+        - serverless-domain-manager
+
+        ...
+
+        custom:
+            customDomain:
+                domainName: abc.somedomain.io
+                certificateName: 'abc.somedomain.io'
+                basePath: ''
+                stage: ${self:provider.stage}
+                createRoute53Record: true
+            customCertificate:
+                -
+                    certificateName: 'abc.somedomain.io' //required
+                    idempotencyToken: 'abcsomedomainio' //optional
+                    hostedZoneNames: 'somedomain.io.' //required if hostedZoneIds is not set
+                    hostedZoneIds: 'XXXXXXXXX' //required if hostedZoneNames is not set
+                    region: eu-west-1 // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
+                    enabled: true // optional - default is true. For some stages you may not want to use certificates (and custom domains associated with it).
+                    rewriteRecords: false
+                -
+                    certificateName: 'abc.someseconddomain.io' //required
+                    idempotencyToken: 'abcsomeseconddomainio' //optional
+                    hostedZoneNames: 'someseconddomain.io.' //required if hostedZoneIds is not set
+                    hostedZoneIds: 'XXXXXXXXX' //required if hostedZoneNames is not set
+                    region: us-east-1 // optional - default is us-east-1 which is required for custom api gateway domains of Type Edge (default)
+                    enabled: true // optional - default is true. For some stages you may not want to use certificates (and custom domains associated with it).
+                    rewriteRecords: false
+
+
 Now you can run:
 
         serverless create-cert
@@ -154,6 +190,19 @@ The new supported syntax is:
         ${certificate(${self:custom.customCertificate.certificateName}):CertificateArn}
 
 see the serverless [docs](https://serverless.com/framework/docs/providers/aws/guide/plugins#custom-variable-types) for more information
+
+Similarly, if you've defined multiple certificates, you have to add the array index to the variable.
+For example, to obtain the certificate details about first certificate in an array you'd use (note the single quotes around indexes as a second param):
+
+If you are on version >= 2.27.0 of serverless & have elected to use the variable resolver: `variablesResolutionMode: 20210219`.
+You must use this supported syntax which is:
+
+        ${certificate:${self:custom.customCertificate.0.certificateName, '0'}.CertificateArn}
+
+For the new variable resolver: `variablesResolutionMode: 20210326`:
+The new supported syntax is:
+
+        ${certificate(${self:custom.customCertificate.0.certificateName}, '0'):CertificateArn}
 
 ### License
 
