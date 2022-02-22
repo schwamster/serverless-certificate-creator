@@ -8,8 +8,6 @@ const mkdirp = require('mkdirp');
 const semver = require('semver')
 var packageJson = require('./package.json');
 
-const unsupportedRegionPrefixes = ['cn-'];
-
 class CreateCertificatePlugin {
   getEchoTestValue(src) {
     return src.slice(5);
@@ -90,13 +88,6 @@ class CreateCertificatePlugin {
         this.certInfoFileName = customCertificate.certInfoFileName || 'cert-info.yml';
         this.subjectAlternativeNames = customCertificate.subjectAlternativeNames || [];
         this.tags = customCertificate.tags || {};
-
-        unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
-          if (this.region.startsWith(unsupportedRegionPrefix)) {
-            console.log(`The configured region ${this.region} does not support ACM. Plugin disabled`);
-            this.enabled = false;
-          }
-        })
       }
       this.initialized = true;
     }
