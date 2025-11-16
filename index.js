@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
-const semver = require('semver')
+const semver = require('semver');
 const packageJson = require('./package.json');
 
 class CreateCertificatePlugin {
@@ -393,14 +393,14 @@ class CreateCertificatePlugin {
 
     return this.route53.listHostedZones({}).promise().then(data => {
 
-      let hostedZones = data.HostedZones.filter(x => this.hostedZoneIds.includes(x.Id.replace(/\/hostedzone\//g, '')) || this.hostedZoneNames.includes(x.Name));
+      let hostedZones = data.HostedZones.filter(x => this.hostedZoneIds.includes(x.Id.replace(/\/hostedzone\//g, '')) || this.hostedZoneNames.includes(x.Name.toLowerCase()));
 
-      if (hostedZones.length == 0) {
-        throw "no hosted zone for domain found"
+      if (hostedZones.length === 0) {
+        throw new Error('no hosted zone for domain found');
       }
 
       return hostedZones.map(({ Id, Name }) => {
-        return { hostedZoneId: Id.replace(/\/hostedzone\//g, ''), Name: Name.substr(0, Name.length - 1) };
+        return { hostedZoneId: Id.replace(/\/hostedzone\//g, ''), Name: Name.slice(0, -1) };
       });
     }).catch(error => {
       this.serverless.cli.log('certificate validation failed', error);
@@ -410,7 +410,7 @@ class CreateCertificatePlugin {
   }
 
   /**
-   * create the record set required for valdiation type dns. the certificate has the necessary information.
+   * create the record set required for validation type dns. the certificate has the necessary information.
    * at least a short time after the cert has been created, thats why you should delay this call a bit after u created a new cert
    */
   createRecordSetForDnsValidation(certificate) {

@@ -431,7 +431,7 @@ describe('CreateCertificatePlugin', () => {
 
       plugin.initializeVariables();
 
-      await expect(plugin.getHostedZoneIds()).rejects.toEqual('no hosted zone for domain found');
+      await expect(plugin.getHostedZoneIds()).rejects.toThrow('no hosted zone for domain found');
     });
 
     test('should strip trailing dot from zone name', async () => {
@@ -447,6 +447,29 @@ describe('CreateCertificatePlugin', () => {
       const result = await plugin.getHostedZoneIds();
 
       expect(result[0].Name).toBe('example.com');
+    });
+
+    test('should match hosted zone names case-insensitively', async () => {
+      // AWS returns zone name with mixed case
+      route53Mock.listHostedZones.mockReturnValue({
+        promise: jest.fn().mockResolvedValue({
+          HostedZones: [
+            { Id: '/hostedzone/Z123', Name: 'Example.Com.' },
+            { Id: '/hostedzone/Z456', Name: 'other.com.' }
+          ]
+        })
+      });
+
+      // User configured lowercase zone name
+      serverlessMock.service.custom.customCertificate.hostedZoneNames = 'example.com.';
+      plugin = new CreateCertificatePlugin(serverlessMock, optionsMock);
+      plugin.initializeVariables();
+
+      const result = await plugin.getHostedZoneIds();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].hostedZoneId).toBe('Z123');
+      expect(result[0].Name).toBe('Example.Com'); // Name returned without trailing dot
     });
   });
 
