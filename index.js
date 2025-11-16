@@ -79,9 +79,10 @@ class CreateCertificatePlugin {
         this.region = customCertificate.region || 'us-east-1';
         this.domain = customCertificate.certificateName;
         //hostedZoneId is mapped for backwards compatibility
-        this.hostedZoneIds = customCertificate.hostedZoneIds ? customCertificate.hostedZoneIds : (customCertificate.hostedZoneId) ? [].concat(customCertificate.hostedZoneId) : [];
+        this.hostedZoneIds = customCertificate.hostedZoneIds ? [].concat(customCertificate.hostedZoneIds) : (customCertificate.hostedZoneId) ? [].concat(customCertificate.hostedZoneId) : [];
         //hostedZoneName is mapped for backwards compatibility
-        this.hostedZoneNames = customCertificate.hostedZoneNames ? customCertificate.hostedZoneNames : (customCertificate.hostedZoneName) ? [].concat(customCertificate.hostedZoneName) : [];
+        this.hostedZoneNames = customCertificate.hostedZoneNames ? [].concat(customCertificate.hostedZoneNames) : (customCertificate.hostedZoneName) ? [].concat(customCertificate.hostedZoneName) : [];
+        this.hostedZoneNames = this.hostedZoneNames.map(name => name.toLowerCase());
         const acmCredentials = Object.assign({}, credentials, { region: this.region });
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
         this.idempotencyToken = customCertificate.idempotencyToken;
