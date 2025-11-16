@@ -6,7 +6,7 @@ const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
 const semver = require('semver')
-var packageJson = require('./package.json');
+const packageJson = require('./package.json');
 
 class CreateCertificatePlugin {
   getEchoTestValue(src) {
@@ -291,11 +291,11 @@ class CreateCertificatePlugin {
       return this.acm.requestCertificate(params).promise().then(requestCertificateResponse => {
         this.serverless.cli.log(`requested cert: ${requestCertificateResponse.CertificateArn}`);
 
-        var params = {
+        const describeCertParams = {
           CertificateArn: requestCertificateResponse.CertificateArn
         };
 
-        return delay(10000).then(() => this.acm.describeCertificate(params).promise().then(certificate => {
+        return delay(10000).then(() => this.acm.describeCertificate(describeCertParams).promise().then(certificate => {
           this.serverless.cli.log(`got cert info: ${certificate.Certificate.CertificateArn} - ${certificate.Certificate.Status}`);
           return this.createRecordSetForDnsValidation(certificate)
             .then(() => this.tagCertificate(certificate.Certificate.CertificateArn))
@@ -376,7 +376,7 @@ class CreateCertificatePlugin {
 
   waitUntilCertificateIsValidated(certificateArn) {
     this.serverless.cli.log('waiting until certificate is validated...');
-    var params = {
+    const params = {
       CertificateArn: certificateArn /* required */
     };
     return this.acm.waitFor('certificateValidated', params).promise().then(data => {
@@ -438,7 +438,7 @@ class CreateCertificatePlugin {
           }
         });
 
-        var params = {
+        const params = {
           ChangeBatch: {
             Changes: changes,
             Comment: `DNS Validation for certificate ${Name}`
@@ -498,7 +498,7 @@ class CreateCertificatePlugin {
             return;
           }
 
-          var params = {
+          const params = {
             ChangeBatch: {
               Changes: changes
             },
@@ -520,7 +520,7 @@ class CreateCertificatePlugin {
    * Lists up all resource recordsets in the given route53 hosted zone.
    */
   listResourceRecordSets(hostedZoneId) {
-    var initialParams = {
+    const initialParams = {
       HostedZoneId: hostedZoneId
     }
 
