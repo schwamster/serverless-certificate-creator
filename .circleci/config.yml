@@ -7,7 +7,7 @@ version: 2
 defaults: &defaults
   working_directory: ~/repo
   docker:
-    - image: circleci/node:10.15
+    - image: cimg/node:14.21
   
 jobs:
   build:
@@ -26,8 +26,8 @@ jobs:
           key: v1-dependencies-{{ checksum "package.json" }}
 
       # run tests!
-      # - run: npm test
-      
+      - run: npm test
+
       - persist_to_workspace:
           root: ~/repo
           paths: .
@@ -36,7 +36,7 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/repo
-      - run: rm -r ./examples
+      - run: rm -rf ./examples
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
@@ -46,7 +46,7 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/repo
-      - run: rm -r ./examples
+      - run: rm -rf ./examples
       - run: 
           name: bump rc version
           command: |
