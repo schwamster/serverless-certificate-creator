@@ -6,9 +6,7 @@ const path = require('path');
 const YAML = require('yamljs');
 const mkdirp = require('mkdirp');
 const semver = require('semver')
-var packageJson = require('./package.json');
-
-const unsupportedRegionPrefixes = ['cn-'];
+const packageJson = require('./package.json');
 
 class CreateCertificatePlugin {
   getEchoTestValue(src) {
@@ -20,13 +18,13 @@ class CreateCertificatePlugin {
     this.initialized = false;
     this.commands = {
       'create-cert': {
-        usage: 'creates a certificate for an existing domain/hosted zone',
+        usage: 'creates a certificate(s) for an existing domain/hosted zone',
         lifecycleEvents: [
           'create'
         ]
       },
       'remove-cert': {
-        usage: 'removes the certificate previously created by create-cert command',
+        usage: 'removes the certificate(s) previously created by create-cert command',
         lifecycleEvents: [
           'remove'
         ]
@@ -58,6 +56,23 @@ class CreateCertificatePlugin {
   }
 
   /**
+   * Checks if the custom certificate entry in JSON is in fact an array.
+   *
+   * If no details have been set, `false` is returned.
+   *
+   * @return Boolean
+   */
+  isCustomCertificateArray() {
+    const arr = (this.serverless.service.custom || {}).customCertificate || null;
+    if (Array.isArray(arr)) {
+      this.certificateArrayLength = arr.length;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
    * Gets the details for the custom certificate from the service settings.
    *
    * If no details have been set, `null` is returned.
@@ -65,7 +80,11 @@ class CreateCertificatePlugin {
    * @return {Object|null}
    */
   getCustomCertificateDetails() {
-    return (this.serverless.service.custom || {}).customCertificate || null;
+    if (Number.isInteger(this.certificateIndex)) {
+      return (this.serverless.service.custom || {}).customCertificate[(this.certificateIndex)] || null;
+    } else {
+      return (this.serverless.service.custom || {}).customCertificate || null;
+    }
   }
 
   initializeVariables() {
@@ -79,9 +98,10 @@ class CreateCertificatePlugin {
         this.region = customCertificate.region || 'us-east-1';
         this.domain = customCertificate.certificateName;
         //hostedZoneId is mapped for backwards compatibility
-        this.hostedZoneIds = customCertificate.hostedZoneIds ? customCertificate.hostedZoneIds : (customCertificate.hostedZoneId) ? [].concat(customCertificate.hostedZoneId) : [];
+        this.hostedZoneIds = customCertificate.hostedZoneIds ? [].concat(customCertificate.hostedZoneIds) : (customCertificate.hostedZoneId) ? [].concat(customCertificate.hostedZoneId) : [];
         //hostedZoneName is mapped for backwards compatibility
-        this.hostedZoneNames = customCertificate.hostedZoneNames ? customCertificate.hostedZoneNames : (customCertificate.hostedZoneName) ? [].concat(customCertificate.hostedZoneName) : [];
+        this.hostedZoneNames = customCertificate.hostedZoneNames ? [].concat(customCertificate.hostedZoneNames) : (customCertificate.hostedZoneName) ? [].concat(customCertificate.hostedZoneName) : [];
+        this.hostedZoneNames = this.hostedZoneNames.map(name => name.toLowerCase());
         const acmCredentials = Object.assign({}, credentials, { region: this.region });
         this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
         this.idempotencyToken = customCertificate.idempotencyToken;
@@ -90,13 +110,6 @@ class CreateCertificatePlugin {
         this.certInfoFileName = customCertificate.certInfoFileName || 'cert-info.yml';
         this.subjectAlternativeNames = customCertificate.subjectAlternativeNames || [];
         this.tags = customCertificate.tags || {};
-
-        unsupportedRegionPrefixes.forEach(unsupportedRegionPrefix => {
-          if (this.region.startsWith(unsupportedRegionPrefix)) {
-            console.log(`The configured region ${this.region} does not support ACM. Plugin disabled`);
-            this.enabled = false;
-          }
-        })
       }
       this.initialized = true;
     }
@@ -238,7 +251,19 @@ class CreateCertificatePlugin {
   /**
    * Creates a certificate for the given options set in serverless.yml under custom->customCertificate
    */
-  createCertificate() {
+  async createCertificate() {
+    if (this.isCustomCertificateArray()) {
+      for (let i = 0; i < this.certificateArrayLength; i++) {
+        this.certificateIndex = i;
+        this.initialized = false;
+        await this._createCertificate();
+      }
+    } else {
+      return this._createCertificate();
+    }
+  }
+
+  _createCertificate() {
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
@@ -266,11 +291,11 @@ class CreateCertificatePlugin {
       return this.acm.requestCertificate(params).promise().then(requestCertificateResponse => {
         this.serverless.cli.log(`requested cert: ${requestCertificateResponse.CertificateArn}`);
 
-        var params = {
+        const describeCertParams = {
           CertificateArn: requestCertificateResponse.CertificateArn
         };
 
-        return delay(10000).then(() => this.acm.describeCertificate(params).promise().then(certificate => {
+        return delay(10000).then(() => this.acm.describeCertificate(describeCertParams).promise().then(certificate => {
           this.serverless.cli.log(`got cert info: ${certificate.Certificate.CertificateArn} - ${certificate.Certificate.Status}`);
           return this.createRecordSetForDnsValidation(certificate)
             .then(() => this.tagCertificate(certificate.Certificate.CertificateArn))
@@ -301,7 +326,19 @@ class CreateCertificatePlugin {
    * Deletes the certificate for the given options set in serverless.yml under custom->customCertificate
    * (if it exists)
    */
-  deleteCertificate() {
+  async deleteCertificate() {
+    if (this.isCustomCertificateArray()) {
+      for (let i = 0; i < this.certificateArrayLength; i++) {
+        this.certificateIndex = i;
+        this.initialized = false;
+        await this._deleteCertificate();
+      }
+    } else {
+      return this._deleteCertificate();
+    }
+  }
+
+  _deleteCertificate() {
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
@@ -339,7 +376,7 @@ class CreateCertificatePlugin {
 
   waitUntilCertificateIsValidated(certificateArn) {
     this.serverless.cli.log('waiting until certificate is validated...');
-    var params = {
+    const params = {
       CertificateArn: certificateArn /* required */
     };
     return this.acm.waitFor('certificateValidated', params).promise().then(data => {
@@ -380,7 +417,12 @@ class CreateCertificatePlugin {
     return this.getHostedZoneIds().then((hostedZoneIds) => {
 
       return Promise.all(hostedZoneIds.map(({ hostedZoneId, Name }) => {
-        let changes = certificate.Certificate.DomainValidationOptions.filter(({ DomainName }) => DomainName.endsWith(Name)).map((x) => {
+        let changes = Array.from(
+          certificate.Certificate.DomainValidationOptions.filter(({ DomainName }) => DomainName.endsWith(Name))
+            // Ensure unique Type-Name pairs
+            .reduce((map, record) => map.set(`${record.ResourceRecord.Type}-${record.ResourceRecord.Name}`, record), new Map())
+            .values()
+        ).map((x) => {
           return {
             Action: this.rewriteRecords ? "UPSERT" : "CREATE",
             ResourceRecordSet: {
@@ -396,7 +438,7 @@ class CreateCertificatePlugin {
           }
         });
 
-        var params = {
+        const params = {
           ChangeBatch: {
             Changes: changes,
             Comment: `DNS Validation for certificate ${Name}`
@@ -426,9 +468,14 @@ class CreateCertificatePlugin {
         // otherwise the whole batch will fail
         return this.listResourceRecordSets(hostedZoneId).then(existingRecords => {
 
-          let changes = certificate.Certificate.DomainValidationOptions
-            .filter(({ DomainName }) => DomainName.endsWith(Name))
-            .map(opt => opt.ResourceRecord)
+          let changes = Array.from(
+            certificate.Certificate.DomainValidationOptions
+              .filter(({ DomainName }) => DomainName.endsWith(Name))
+              .map(opt => opt.ResourceRecord)
+              // Ensure unique record Type-Name pairs
+              .reduce((map, record) => map.set(`${record.Type}-${record.Name}`, record), new Map())
+              .values()
+          )
             .filter(record => existingRecords.find(x => x.Name === record.Name && x.Type === record.Type))
             .map(record => {
               return {
@@ -451,7 +498,7 @@ class CreateCertificatePlugin {
             return;
           }
 
-          var params = {
+          const params = {
             ChangeBatch: {
               Changes: changes
             },
@@ -473,7 +520,7 @@ class CreateCertificatePlugin {
    * Lists up all resource recordsets in the given route53 hosted zone.
    */
   listResourceRecordSets(hostedZoneId) {
-    var initialParams = {
+    const initialParams = {
       HostedZoneId: hostedZoneId
     }
 
@@ -504,14 +551,25 @@ class CreateCertificatePlugin {
   /**
    * Prints out a summary of all certificate related info
    */
-  certificateSummary() {
+  async certificateSummary() {
+    this.serverless.cli.consoleLog(chalk.yellow.underline('Serverless Certificate Creator Summary'));
+    if (this.isCustomCertificateArray()) {
+      for (let i = 0; i < this.certificateArrayLength; i++) {
+        this.certificateIndex = i;
+        this.initialized = false;
+        await this._certificateSummary();
+      }
+    } else {
+      return this._certificateSummary();
+    }
+  }
+
+  _certificateSummary() {
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
     }
     return this.getExistingCertificate().then(existingCertificate => {
-      this.serverless.cli.consoleLog(chalk.yellow.underline('Serverless Certificate Creator Summary'));
-
       this.serverless.cli.consoleLog(chalk.yellow('Certificate'));
       this.serverless.cli.consoleLog(`  ${existingCertificate.CertificateArn} => ${existingCertificate.DomainName}`);
       return true;
@@ -519,9 +577,12 @@ class CreateCertificatePlugin {
   }
 
   async getCertificateProperty({address, params}) {
-
     const property = address
     const domainName = params[0]
+    if (params.length >= 2) {
+      this.certificateIndex = parseInt(params[1]);
+      this.initialized = false;
+    }
 
     this.initializeVariables();
     if (!this.enabled) {
@@ -536,9 +597,9 @@ class CreateCertificatePlugin {
             value: cert[property]
           }
         } else {
-          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
+          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning a null value instead!'));
           return {
-            value: ''
+            value: null
           }
         }
       })
@@ -574,8 +635,8 @@ class CreateCertificatePlugin {
         if (cert && cert[property]) {
           return cert[property];
         } else {
-          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
-          return '';
+          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning a null value instead!'));
+          return null;
         }
       })
       .catch(error => {
