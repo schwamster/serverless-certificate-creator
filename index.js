@@ -20,13 +20,13 @@ class CreateCertificatePlugin {
     this.initialized = false;
     this.commands = {
       'create-cert': {
-        usage: 'creates a certificate for an existing domain/hosted zone',
+        usage: 'creates a certificate(s) for an existing domain/hosted zone',
         lifecycleEvents: [
           'create'
         ]
       },
       'remove-cert': {
-        usage: 'removes the certificate previously created by create-cert command',
+        usage: 'removes the certificate(s) previously created by create-cert command',
         lifecycleEvents: [
           'remove'
         ]
@@ -58,6 +58,23 @@ class CreateCertificatePlugin {
   }
 
   /**
+   * Checks if the custom certificate entry in JSON is in fact an array.
+   *
+   * If no details have been set, `false` is returned.
+   *
+   * @return Boolean
+   */
+  isCustomCertificateArray() {
+    const arr = (this.serverless.service.custom || {}).customCertificate || null;
+    if (Array.isArray(arr)) {
+      this.certificateArrayLength = arr.length;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
    * Gets the details for the custom certificate from the service settings.
    *
    * If no details have been set, `null` is returned.
@@ -65,7 +82,11 @@ class CreateCertificatePlugin {
    * @return {Object|null}
    */
   getCustomCertificateDetails() {
-    return (this.serverless.service.custom || {}).customCertificate || null;
+    if (Number.isInteger(this.certificateIndex)) {
+      return (this.serverless.service.custom || {}).customCertificate[(this.certificateIndex)] || null;
+    } else {
+      return (this.serverless.service.custom || {}).customCertificate || null;
+    }
   }
 
   initializeVariables() {
@@ -239,7 +260,19 @@ class CreateCertificatePlugin {
   /**
    * Creates a certificate for the given options set in serverless.yml under custom->customCertificate
    */
-  createCertificate() {
+  async createCertificate() {
+    if (this.isCustomCertificateArray()) {
+      for (let i = 0; i < this.certificateArrayLength; i++) {
+        this.certificateIndex = i;
+        this.initialized = false;
+        await this._createCertificate();
+      }
+    } else {
+      return this._createCertificate();
+    }
+  }
+
+  _createCertificate() {
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
@@ -302,7 +335,19 @@ class CreateCertificatePlugin {
    * Deletes the certificate for the given options set in serverless.yml under custom->customCertificate
    * (if it exists)
    */
-  deleteCertificate() {
+  async deleteCertificate() {
+    if (this.isCustomCertificateArray()) {
+      for (let i = 0; i < this.certificateArrayLength; i++) {
+        this.certificateIndex = i;
+        this.initialized = false;
+        await this._deleteCertificate();
+      }
+    } else {
+      return this._deleteCertificate();
+    }
+  }
+
+  _deleteCertificate() {
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
@@ -515,14 +560,25 @@ class CreateCertificatePlugin {
   /**
    * Prints out a summary of all certificate related info
    */
-  certificateSummary() {
+  async certificateSummary() {
+    this.serverless.cli.consoleLog(chalk.yellow.underline('Serverless Certificate Creator Summary'));
+    if (this.isCustomCertificateArray()) {
+      for (let i = 0; i < this.certificateArrayLength; i++) {
+        this.certificateIndex = i;
+        this.initialized = false;
+        await this._certificateSummary();
+      }
+    } else {
+      return this._certificateSummary();
+    }
+  }
+
+  _certificateSummary() {
     this.initializeVariables();
     if (!this.enabled) {
       return this.reportDisabled();
     }
     return this.getExistingCertificate().then(existingCertificate => {
-      this.serverless.cli.consoleLog(chalk.yellow.underline('Serverless Certificate Creator Summary'));
-
       this.serverless.cli.consoleLog(chalk.yellow('Certificate'));
       this.serverless.cli.consoleLog(`  ${existingCertificate.CertificateArn} => ${existingCertificate.DomainName}`);
       return true;
@@ -530,9 +586,12 @@ class CreateCertificatePlugin {
   }
 
   async getCertificateProperty({address, params}) {
-
     const property = address
     const domainName = params[0]
+    if (params.length >= 2) {
+      this.certificateIndex = parseInt(params[1]);
+      this.initialized = false;
+    }
 
     this.initializeVariables();
     if (!this.enabled) {
