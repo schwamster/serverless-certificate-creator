@@ -597,9 +597,9 @@ class CreateCertificatePlugin {
             value: cert[property]
           }
         } else {
-          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
+          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning a null value instead!'));
           return {
-            value: ''
+            value: null
           }
         }
       })
@@ -635,8 +635,8 @@ class CreateCertificatePlugin {
         if (cert && cert[property]) {
           return cert[property];
         } else {
-          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning an empty string instead!'));
-          return '';
+          this.serverless.cli.consoleLog(chalk.yellow('Warning, certificate or certificate property was not found. Returning a null value instead!'));
+          return null;
         }
       })
       .catch(error => {
