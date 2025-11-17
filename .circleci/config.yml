@@ -28,6 +28,10 @@ jobs:
       # run tests!
       - run: npm test
 
+      # Store test results for CircleCI UI
+      - store_test_results:
+          path: test-results
+
       - persist_to_workspace:
           root: ~/repo
           paths: .
