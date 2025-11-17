@@ -47,15 +47,17 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run: rm -rf ./examples
-      - run: 
+      - run:
           name: bump rc version
           command: |
             PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
-            npm version --no-git-tag-version $PACKAGE_VERSION-rc-${CIRCLE_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
+            SANITIZED_BRANCH=$(echo ${CIRCLE_BRANCH} | sed 's/\//-/g')
+            npm version --no-git-tag-version $PACKAGE_VERSION-rc-${SANITIZED_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
+            echo "export SANITIZED_BRANCH=${SANITIZED_BRANCH}" >> $BASH_ENV
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
-      - run: npm publish --tag rc-${CIRCLE_BRANCH}
+      - run: npm publish --tag rc-${SANITIZED_BRANCH}
       
 workflows:
   version: 2
