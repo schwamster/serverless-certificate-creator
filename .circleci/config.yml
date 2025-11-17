@@ -52,7 +52,7 @@ jobs:
           command: |
             PACKAGE_VERSION=$(node -p -e "require('./package.json').version")
             SANITIZED_BRANCH=$(echo ${CIRCLE_BRANCH} | sed 's/\//-/g')
-            npm version --no-git-tag-version $PACKAGE_VERSION-rc-${SANITIZED_BRANCH}.${CIRCLE_PREVIOUS_BUILD_NUM}
+            npm version --no-git-tag-version $PACKAGE_VERSION-rc-${SANITIZED_BRANCH}.${CIRCLE_BUILD_NUM}
             echo "export SANITIZED_BRANCH=${SANITIZED_BRANCH}" >> $BASH_ENV
       - run:
           name: Authenticate with registry
