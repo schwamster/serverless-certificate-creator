@@ -4,7 +4,7 @@
   "description": "creates a certificate that can be used for custom domains for your api gateway",
   "main": "index.js",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=16.0.0"
   },
   "scripts": {
     "test": "jest",
